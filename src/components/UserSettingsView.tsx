@@ -12,7 +12,10 @@ import {
   Users, 
   Check, 
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  CloudUpload,
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react'
 import type { UserProfile } from '../types/workout'
 
@@ -25,6 +28,7 @@ interface UserSettingsViewProps {
   onExportBackup: () => void
   onImportBackup: (jsonStr: string) => boolean
   onResetRoutines: () => void
+  onSyncCloud: () => Promise<{ success: boolean; message: string }>
 }
 
 const AVATARS = ['🦍', '⚡', '🔥', '💪', '🦁', '🥊', '🐺', '🦈', '👑', '🚀', '🥋', '🏆']
@@ -45,7 +49,8 @@ export const UserSettingsView: React.FC<UserSettingsViewProps> = ({
   onOpenPlateCalculator,
   onExportBackup,
   onImportBackup,
-  onResetRoutines
+  onResetRoutines,
+  onSyncCloud
 }) => {
   const [name, setName] = useState(activeProfile.name || '')
   const [avatar, setAvatar] = useState(activeProfile.avatar || '🦍')
@@ -58,6 +63,17 @@ export const UserSettingsView: React.FC<UserSettingsViewProps> = ({
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(activeProfile.weightUnit || 'kg')
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const [importStatus, setImportStatus] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [cloudStatus, setCloudStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  const handleSyncCloud = async () => {
+    setSyncing(true)
+    setCloudStatus(null)
+    const result = await onSyncCloud()
+    setCloudStatus({ type: result.success ? 'success' : 'error', message: result.message })
+    setSyncing(false)
+    setTimeout(() => setCloudStatus(null), 5000)
+  }
 
   useEffect(() => {
     setName(activeProfile.name || '')
@@ -333,6 +349,51 @@ export const UserSettingsView: React.FC<UserSettingsViewProps> = ({
             </div>
           </div>
           <span className="text-xs font-bold text-cyan-400 bg-cyan-950/60 px-3 py-1 rounded-xl border border-cyan-800/40">Abrir</span>
+        </button>
+      </section>
+
+      {/* Firebase Cloud Sync */}
+      <section aria-labelledby="cloud-sync-heading" className="glass-panel rounded-3xl p-5 border border-cyan-500/30 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <CloudUpload className="w-4 h-4 text-cyan-400" />
+            <h2 id="cloud-sync-heading" className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Sincronización con Firebase
+            </h2>
+          </div>
+          {activeProfile.isAdmin && (
+            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              Admin
+            </span>
+          )}
+        </div>
+
+        <p className="text-[11px] text-slate-400">
+          Sube tu perfil y rutinas a la nube para que el entrenador pueda ver tu cuenta y asignarte rutinas.
+          Al iniciar sesión, la app descarga automáticamente las rutinas que te hayan asignado.
+        </p>
+
+        {cloudStatus && (
+          <div className={`p-3 rounded-2xl border text-xs font-bold flex items-start gap-2 ${
+            cloudStatus.type === 'success'
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+              : 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+          }`}>
+            {cloudStatus.type === 'success'
+              ? <Check className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              : <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />}
+            <span>{cloudStatus.message}</span>
+          </div>
+        )}
+
+        <button
+          onClick={handleSyncCloud}
+          disabled={syncing}
+          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60 text-slate-950 font-black text-xs active:scale-98 shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center space-x-2"
+        >
+          <CloudUpload className={`w-4 h-4 ${syncing ? 'animate-bounce' : ''}`} />
+          <span>{syncing ? 'SINCRONIZANDO...' : 'SUBIR MIS DATOS A FIREBASE'}</span>
         </button>
       </section>
 

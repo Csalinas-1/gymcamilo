@@ -7,17 +7,19 @@ interface NavbarProps {
   onNavigateActive: () => void
   activeProfile: UserProfile
   onOpenProfileSwitcher: () => void
+  wide?: boolean
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeSessionActive,
   onNavigateActive,
   activeProfile,
-  onOpenProfileSwitcher
+  onOpenProfileSwitcher,
+  wide = false
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full bg-[#090d16]/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3">
-      <div className="max-w-md mx-auto flex items-center justify-between">
+      <div className={`mx-auto flex items-center justify-between ${wide ? 'max-w-7xl' : 'max-w-md'}`}>
         {/* Brand & Logo */}
         <div className="flex items-center space-x-2.5">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-300 p-[1.5px] shadow-lg shadow-amber-500/20">

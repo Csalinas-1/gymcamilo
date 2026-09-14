@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { INITIAL_ROUTINES } from '../data/initialRoutines'
+import { EXERCISE_LIBRARY, MUSCLE_GROUPS } from '../data/exerciseLibrary'
 import type { 
   WorkoutDay, 
   WorkoutSession, 
@@ -7,8 +8,20 @@ import type {
   CustomExerciseLink, 
   ExerciseSessionLog,
   SetLog,
-  UserProfile
+  UserProfile,
+  LibraryExercise,
+  RoutineAssignment
 } from '../types/workout'
+import { 
+  seedExerciseLibrary, 
+  fetchExerciseLibraryFromCloud,
+  fetchAssignedRoutines, 
+  fetchCloudProfiles, 
+  assignRoutineToUser,
+  syncAllToFirestore,
+  isFirebaseConfigured,
+  type CloudUserSummary
+} from '../services/firebase'
 import { playCountdownBeep, playSuccessChime } from '../utils/audio'
 import confetti from 'canvas-confetti'
 
@@ -23,8 +36,31 @@ const DEFAULT_PROFILES: UserProfile[] = [
     vibrationEnabled: true,
     weightUnit: 'kg',
     createdAt: new Date().toISOString() 
+  },
+  {
+    id: 'perfil_camilo_lazcano',
+    name: 'Camilo Lazcano',
+    avatar: '👑',
+    goal: 'Fuerza Máxima',
+    weeklyTargetDays: 5,
+    soundEnabled: true,
+    vibrationEnabled: true,
+    weightUnit: 'kg',
+    isAdmin: true,
+    createdAt: new Date().toISOString()
   }
 ]
+
+const LIBRARY_CACHE_KEY = 'lazcakon_exercise_library'
+const ASSIGNMENTS_LOG_KEY = 'lazcakon_admin_assignments'
+const ADMIN_SEEDED_KEY = 'lazcakon_admin_profile_seeded'
+
+export interface LibraryUploadState {
+  isUploading: boolean
+  done: number
+  total: number
+  message: string | null
+}
 
 export interface RestTimerState {
   isActive: boolean
@@ -126,7 +162,40 @@ export function useWorkoutStore() {
     }
   })
 
-  // 9. Rest Timer State
+  // 9. Exercise Library (cached locally, syncable to Firebase)
+  const [libraryExercises, setLibraryExercises] = useState<LibraryExercise[]>(() => {
+    try {
+      const saved = localStorage.getItem(LIBRARY_CACHE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch {
+      // fallback
+    }
+    return EXERCISE_LIBRARY
+  })
+
+  const [libraryUpload, setLibraryUpload] = useState<LibraryUploadState>({
+    isUploading: false,
+    done: 0,
+    total: EXERCISE_LIBRARY.length,
+    message: null
+  })
+
+  // 10. Cloud users & routine assignments
+  const [cloudUsers, setCloudUsers] = useState<CloudUserSummary[]>([])
+  const [assignments, setAssignments] = useState<RoutineAssignment[]>(() => {
+    try {
+      const saved = localStorage.getItem(ASSIGNMENTS_LOG_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+  const [assignmentStatus, setAssignmentStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // 11. Rest Timer State
   const [restTimer, setRestTimer] = useState<RestTimerState>({
     isActive: false,
     totalSeconds: 0,
@@ -170,6 +239,68 @@ export function useWorkoutStore() {
     localStorage.setItem('lazcakon_is_logged_in', JSON.stringify(isLoggedIn))
   }, [isLoggedIn])
 
+  // Ensure the admin profile (Camilo Lazcano) exists on this device at least once
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(ADMIN_SEEDED_KEY)) return
+      const adminDefault = DEFAULT_PROFILES.find(p => p.isAdmin)
+      if (adminDefault && !profiles.some(p => p.id === adminDefault.id)) {
+        setProfiles(prev => [...prev, { ...adminDefault, createdAt: new Date().toISOString() }])
+      }
+      localStorage.setItem(ADMIN_SEEDED_KEY, 'true')
+    } catch {
+      // safe fallback
+    }
+  }, [profiles])
+
+  // Pull routines assigned by the admin from Firestore and merge them locally
+  useEffect(() => {
+    if (!activeProfileId || !isFirebaseConfigured()) return
+    let cancelled = false
+
+    const appliedKey = `lazcakon_${activeProfileId}_applied_assignments`
+
+    const applyAssignments = async () => {
+      const result = await fetchAssignedRoutines(activeProfileId)
+      if (cancelled || !result.success || result.assignments.length === 0) return
+
+      let applied: Record<string, boolean> = {}
+      try {
+        applied = JSON.parse(localStorage.getItem(appliedKey) || '{}')
+      } catch {
+        applied = {}
+      }
+
+      const pending = result.assignments.filter(a => !applied[a.id])
+      if (pending.length === 0) return
+
+      setRoutines(prev => {
+        let next = [...prev]
+        pending.forEach(assignment => {
+          const idx = next.findIndex(r => r.id === assignment.routineId)
+          if (idx >= 0) {
+            next[idx] = assignment.routine
+          } else {
+            next = [...next, assignment.routine]
+          }
+          applied[assignment.id] = true
+        })
+        return next
+      })
+
+      try {
+        localStorage.setItem(appliedKey, JSON.stringify(applied))
+      } catch {
+        // safe fallback
+      }
+    }
+
+    applyAssignments()
+    return () => {
+      cancelled = true
+    }
+  }, [activeProfileId])
+
   useEffect(() => {
     localStorage.setItem(getStorageKey('routines'), JSON.stringify(routines))
   }, [routines, activeProfileId])
@@ -197,6 +328,22 @@ export function useWorkoutStore() {
   useEffect(() => {
     localStorage.setItem(getStorageKey('alternatives'), JSON.stringify(selectedAlternatives))
   }, [selectedAlternatives, activeProfileId])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify(libraryExercises))
+    } catch {
+      // safe fallback
+    }
+  }, [libraryExercises])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ASSIGNMENTS_LOG_KEY, JSON.stringify(assignments))
+    } catch {
+      // safe fallback
+    }
+  }, [assignments])
 
   const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0] || DEFAULT_PROFILES[0]
 
@@ -303,6 +450,131 @@ export function useWorkoutStore() {
   const resetRoutinesToDefault = useCallback(() => {
     setRoutines(INITIAL_ROUTINES)
   }, [])
+
+  // --- EXERCISE LIBRARY & ROUTINE ASSIGNMENTS (ADMIN) ---
+
+  const uploadExerciseLibrary = useCallback(async () => {
+    setLibraryUpload({
+      isUploading: true,
+      done: 0,
+      total: libraryExercises.length,
+      message: null
+    })
+
+    const result = await seedExerciseLibrary(libraryExercises, (done, total) => {
+      setLibraryUpload(prev => ({ ...prev, done, total }))
+    })
+
+    setLibraryUpload({
+      isUploading: false,
+      done: result.count,
+      total: libraryExercises.length,
+      message: result.message
+    })
+
+    return result
+  }, [libraryExercises])
+
+  const refreshLibraryFromCloud = useCallback(async () => {
+    const result = await fetchExerciseLibraryFromCloud()
+    if (result.success && result.exercises && result.exercises.length > 0) {
+      setLibraryExercises(result.exercises)
+    }
+    return result
+  }, [])
+
+  const refreshCloudUsers = useCallback(async () => {
+    const result = await fetchCloudProfiles()
+    if (result.success) {
+      setCloudUsers(result.users)
+    }
+    return result
+  }, [])
+
+  const assignRoutineToProfile = useCallback(async (
+    targetProfileId: string,
+    targetProfileName: string,
+    routine: WorkoutDay
+  ) => {
+    const adminName = activeProfile?.name || 'Administrador'
+    const assignment: RoutineAssignment = {
+      id: 'assign_' + Date.now(),
+      routineId: routine.id,
+      routineTitle: routine.title,
+      assignedToProfileId: targetProfileId,
+      assignedToProfileName: targetProfileName,
+      assignedByProfileId: activeProfileId,
+      assignedByProfileName: adminName,
+      assignedAt: new Date().toISOString(),
+      routine
+    }
+
+    const result = await assignRoutineToUser(assignment)
+    setAssignmentStatus({
+      type: result.success ? 'success' : 'error',
+      message: result.message
+    })
+
+    if (!result.success) return result
+
+    setAssignments(prev => [assignment, ...prev.filter(a => a.id !== assignment.id)])
+
+    // Apply immediately for profiles stored on this device
+    try {
+      const targetKey = `lazcakon_${targetProfileId}_routines`
+      const raw = localStorage.getItem(targetKey)
+      const targetRoutines: WorkoutDay[] = raw ? JSON.parse(raw) : INITIAL_ROUTINES
+      const idx = targetRoutines.findIndex(r => r.id === routine.id)
+      const next = idx >= 0
+        ? targetRoutines.map(r => r.id === routine.id ? routine : r)
+        : [...targetRoutines, routine]
+      localStorage.setItem(targetKey, JSON.stringify(next))
+
+      if (targetProfileId === activeProfileId) {
+        setRoutines(next)
+      }
+    } catch {
+      // local apply is best-effort
+    }
+
+    return result
+  }, [activeProfile, activeProfileId])
+
+  const clearAssignmentStatus = useCallback(() => {
+    setAssignmentStatus(null)
+  }, [])
+
+  const syncToCloud = useCallback(async () => {
+    const result = await syncAllToFirestore(
+      activeProfileId,
+      activeProfile?.name || 'Atleta',
+      routines,
+      history,
+      prs,
+      customLinks,
+      selectedAlternatives,
+      {
+        avatar: activeProfile?.avatar,
+        goal: activeProfile?.goal,
+        isAdmin: Boolean(activeProfile?.isAdmin)
+      }
+    )
+
+    if (result.success && activeProfile?.isAdmin) {
+      await refreshCloudUsers()
+    }
+
+    return result
+  }, [
+    activeProfileId,
+    activeProfile,
+    routines,
+    history,
+    prs,
+    customLinks,
+    selectedAlternatives,
+    refreshCloudUsers
+  ])
 
   // --- REST TIMER ---
 
@@ -673,6 +945,19 @@ export function useWorkoutStore() {
     updateRoutine,
     deleteRoutine,
     resetRoutinesToDefault,
+    isAdmin: Boolean(activeProfile?.isAdmin),
+    libraryExercises,
+    libraryGroups: MUSCLE_GROUPS,
+    libraryUpload,
+    uploadExerciseLibrary,
+    refreshLibraryFromCloud,
+    cloudUsers,
+    refreshCloudUsers,
+    syncToCloud,
+    assignments,
+    assignRoutineToProfile,
+    assignmentStatus,
+    clearAssignmentStatus,
     activeSession,
     history,
     prs,

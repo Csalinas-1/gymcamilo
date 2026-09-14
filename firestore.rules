@@ -2,8 +2,16 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permitir lectura y escritura de entrenamientos y marcas del usuario
+    // Perfil, rutinas, entrenamientos y marcas de cada atleta
+    match /users/{userId} {
+      allow read, write: if true;
+    }
     match /users/{userId}/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Librería global de ejercicios agrupada por zona muscular
+    match /exercises/{exerciseId} {
       allow read, write: if true;
     }
   }

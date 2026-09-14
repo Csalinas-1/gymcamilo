@@ -1,18 +1,20 @@
 import React from 'react'
-import { Home, Calendar, PlayCircle, Trophy, Settings } from 'lucide-react'
+import { Home, Calendar, PlayCircle, Trophy, Settings, ShieldCheck } from 'lucide-react'
 
-export type NavTab = 'hoy' | 'rutinas' | 'activo' | 'records' | 'cloud'
+export type NavTab = 'hoy' | 'rutinas' | 'activo' | 'records' | 'cloud' | 'admin'
 
 interface BottomNavProps {
   currentTab: NavTab
   onTabChange: (tab: NavTab) => void
   hasActiveWorkout: boolean
+  isAdmin?: boolean
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   currentTab,
   onTabChange,
-  hasActiveWorkout
+  hasActiveWorkout,
+  isAdmin = false
 }) => {
   const tabs = [
     { id: 'hoy' as NavTab, label: 'Hoy', icon: Home },
@@ -25,12 +27,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       highlight: hasActiveWorkout 
     },
     { id: 'records' as NavTab, label: 'Récords', icon: Trophy },
+    ...(isAdmin
+      ? [{ id: 'admin' as NavTab, label: 'Admin', icon: ShieldCheck }]
+      : []),
     { id: 'cloud' as NavTab, label: 'Ajustes', icon: Settings }
   ]
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#090d16]/95 backdrop-blur-2xl border-t border-slate-800/90 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)] pt-1 px-2">
-      <div className="max-w-md mx-auto flex items-center justify-around">
+      <div className="max-w-md lg:max-w-2xl mx-auto flex items-center justify-around">
         {tabs.map(tab => {
           const Icon = tab.icon
           const isActive = currentTab === tab.id
@@ -40,12 +45,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`relative flex flex-col items-center justify-center w-16 py-1.5 transition-all duration-200 active:scale-90 ${
-                isActive ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-200'
+                isActive
+                  ? tab.id === 'admin' ? 'text-amber-400' : 'text-emerald-400'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {/* Highlight background pill if active tab */}
               {isActive && (
-                <span className="absolute -top-1 w-8 h-1 bg-emerald-400 rounded-full shadow-sm shadow-emerald-400/50"></span>
+                <span className={`absolute -top-1 w-8 h-1 rounded-full shadow-sm ${
+                  tab.id === 'admin' ? 'bg-amber-400 shadow-amber-400/50' : 'bg-emerald-400 shadow-emerald-400/50'
+                }`}></span>
               )}
 
               <div className="relative">
@@ -58,7 +67,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 )}
               </div>
 
-              <span className={`text-[11px] font-semibold tracking-tight mt-1 ${isActive ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>
+              <span className={`text-[11px] font-semibold tracking-tight mt-1 ${
+                isActive
+                  ? tab.id === 'admin' ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'
+                  : 'text-slate-400'
+              }`}>
                 {tab.label}
               </span>
             </button>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useWorkoutStore } from './hooks/useWorkoutStore'
 import { Navbar } from './components/Navbar'
 import { BottomNav, type NavTab } from './components/BottomNav'
@@ -7,6 +7,7 @@ import { RoutinesView } from './components/RoutinesView'
 import { ActiveWorkoutView } from './components/ActiveWorkoutView'
 import { StatsView } from './components/StatsView'
 import { UserSettingsView } from './components/UserSettingsView'
+import { AdminView } from './components/AdminView'
 import { FloatingRestTimer } from './components/FloatingRestTimer'
 import { ExerciseModal } from './components/ExerciseModal'
 import { PlateCalculatorModal } from './components/PlateCalculatorModal'
@@ -27,6 +28,13 @@ export function App() {
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [routineEditorOpen, setRoutineEditorOpen] = useState(false)
   const [routineToEdit, setRoutineToEdit] = useState<WorkoutDay | null>(null)
+
+  // Prevent staying on the admin tab after switching to a non-admin profile
+  useEffect(() => {
+    if (!store.isAdmin && currentTab === 'admin') {
+      setCurrentTab('hoy')
+    }
+  }, [store.isAdmin, currentTab])
 
   // If not logged in, render the Login / Welcome Screen
   if (!store.isLoggedIn) {
@@ -84,10 +92,11 @@ export function App() {
         onNavigateActive={() => setCurrentTab('activo')}
         activeProfile={store.activeProfile}
         onOpenProfileSwitcher={() => setProfileModalOpen(true)}
+        wide={currentTab === 'admin'}
       />
 
-      {/* Main Content Area (Optimized for Mobile Screens) */}
-      <main className="flex-1 w-full max-w-md mx-auto px-4 pt-4 pb-20">
+      {/* Main Content Area (Optimized for Mobile Screens, wide for Admin) */}
+      <main className={`flex-1 w-full mx-auto px-4 pt-4 pb-20 ${currentTab === 'admin' ? 'max-w-7xl' : 'max-w-md'}`}>
         {currentTab === 'hoy' && (
           <HomeDashboard
             routines={store.routines}
@@ -169,6 +178,29 @@ export function App() {
             onExportBackup={store.exportBackupJSON}
             onImportBackup={store.importBackupJSON}
             onResetRoutines={store.resetRoutinesToDefault}
+            onSyncCloud={store.syncToCloud}
+          />
+        )}
+
+        {currentTab === 'admin' && store.isAdmin && (
+          <AdminView
+            activeProfile={store.activeProfile}
+            profiles={store.profiles}
+            routines={store.routines}
+            libraryExercises={store.libraryExercises}
+            libraryGroups={store.libraryGroups}
+            libraryUpload={store.libraryUpload}
+            onUploadLibrary={store.uploadExerciseLibrary}
+            onRefreshLibrary={store.refreshLibraryFromCloud}
+            cloudUsers={store.cloudUsers}
+            onRefreshCloudUsers={store.refreshCloudUsers}
+            assignments={store.assignments}
+            onAssignRoutine={store.assignRoutineToProfile}
+            assignmentStatus={store.assignmentStatus}
+            onClearAssignmentStatus={store.clearAssignmentStatus}
+            onCreateRoutine={handleOpenCreateRoutine}
+            onEditRoutine={handleOpenEditRoutine}
+            onDeleteRoutine={store.deleteRoutine}
           />
         )}
       </main>
@@ -228,6 +260,7 @@ export function App() {
         currentTab={currentTab}
         onTabChange={setCurrentTab}
         hasActiveWorkout={!!store.activeSession}
+        isAdmin={store.isAdmin}
       />
     </div>
   )

@@ -1,5 +1,43 @@
 export type DayOfWeek = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo' | 'Personalizado'
 
+export type MuscleGroup =
+  | 'Abdomen'
+  | 'Todos'
+  | 'Pierna'
+  | 'Espalda'
+  | 'Hombro'
+  | 'Tríceps'
+  | 'Bíceps'
+  | 'Pecho'
+  | 'Cuello'
+  | 'Antebrazo'
+
+export interface LibraryExercise {
+  id: string
+  name: string
+  muscleGroup: MuscleGroup
+  url: string
+}
+
+export interface MuscleGroupMeta {
+  id: MuscleGroup
+  label: string
+  accent: string
+  count: number
+}
+
+export interface RoutineAssignment {
+  id: string
+  routineId: string
+  routineTitle: string
+  assignedToProfileId: string
+  assignedToProfileName: string
+  assignedByProfileId: string
+  assignedByProfileName: string
+  assignedAt: string
+  routine: WorkoutDay
+}
+
 export interface UserProfile {
   id: string
   name: string
@@ -11,6 +49,7 @@ export interface UserProfile {
   soundEnabled?: boolean
   vibrationEnabled?: boolean
   weightUnit?: 'kg' | 'lbs'
+  isAdmin?: boolean
   createdAt: string
 }
 

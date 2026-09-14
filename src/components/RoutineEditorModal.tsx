@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { X, Calendar, Plus, Trash2, Edit3, Save } from 'lucide-react'
-import type { WorkoutDay, Exercise } from '../types/workout'
+import { X, Calendar, Plus, Trash2, Edit3, Save, BookOpen } from 'lucide-react'
+import type { WorkoutDay, Exercise, LibraryExercise } from '../types/workout'
 import { ExerciseEditorModal } from './ExerciseEditorModal'
+import { ExerciseLibraryPicker } from './ExerciseLibraryPicker'
 
 interface RoutineEditorModalProps {
   isOpen: boolean
@@ -35,6 +36,9 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   // Nested exercise editor
   const [exerciseModalOpen, setExerciseModalOpen] = useState(false)
   const [selectedExerciseToEdit, setSelectedExerciseToEdit] = useState<Exercise | null>(null)
+
+  // Nested library picker
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false)
 
   useEffect(() => {
     if (routineToEdit) {
@@ -95,6 +99,26 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   const handleOpenEditExercise = (ex: Exercise) => {
     setSelectedExerciseToEdit(ex)
     setExerciseModalOpen(true)
+  }
+
+  const handleAddFromLibrary = (libraryExercise: LibraryExercise) => {
+    const newExercise: Exercise = {
+      id: `ex_lib_${libraryExercise.id}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: libraryExercise.name,
+      targetMuscles: libraryExercise.muscleGroup,
+      defaultSets: 3,
+      repRange: '10-12',
+      restSeconds: 60,
+      restText: '60 s',
+      alternative: 'Máquina disponible',
+      objective: 'Hipertrofia',
+      defaultVideoUrl: libraryExercise.url,
+      techniqueCues: [
+        'Controlar el rango completo de movimiento',
+        'Fase excéntrica de 2-3 segundos'
+      ]
+    }
+    setExercises(prev => [...prev, newExercise])
   }
 
   return (
@@ -205,14 +229,24 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Ejercicios ({exercises.length})
                 </span>
-                <button
-                  type="button"
-                  onClick={handleOpenAddExercise}
-                  className="flex items-center space-x-1 text-xs font-bold text-emerald-400 hover:text-emerald-300 active:scale-95 transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Agregar Ejercicio</span>
-                </button>
+                <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setLibraryPickerOpen(true)}
+                    className="flex items-center space-x-1 text-xs font-bold text-cyan-400 hover:text-cyan-300 active:scale-95 transition-all"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Desde Librería</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddExercise}
+                    className="flex items-center space-x-1 text-xs font-bold text-emerald-400 hover:text-emerald-300 active:scale-95 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Agregar Ejercicio</span>
+                  </button>
+                </div>
               </div>
 
               {exercises.length === 0 ? (
@@ -306,6 +340,13 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
         }}
         onSaveExercise={handleSaveExercise}
         exerciseToEdit={selectedExerciseToEdit}
+      />
+
+      {/* Nested Exercise Library Picker */}
+      <ExerciseLibraryPicker
+        isOpen={libraryPickerOpen}
+        onClose={() => setLibraryPickerOpen(false)}
+        onAddExercise={handleAddFromLibrary}
       />
     </>
   )
