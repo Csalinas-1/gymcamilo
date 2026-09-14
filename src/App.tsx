@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useWorkoutStore } from './hooks/useWorkoutStore'
+import { useIsDesktop } from './hooks/useIsDesktop'
 import { Navbar } from './components/Navbar'
 import { BottomNav, type NavTab } from './components/BottomNav'
+import { DesktopSidebar } from './components/DesktopSidebar'
 import { HomeDashboard } from './components/HomeDashboard'
 import { RoutinesView } from './components/RoutinesView'
+import { RoutineBuilderView } from './components/RoutineBuilderView'
 import { ActiveWorkoutView } from './components/ActiveWorkoutView'
 import { StatsView } from './components/StatsView'
 import { UserSettingsView } from './components/UserSettingsView'
@@ -18,8 +21,9 @@ import type { Exercise, WorkoutDay } from './types/workout'
 
 export function App() {
   const store = useWorkoutStore()
+  const isDesktop = useIsDesktop()
   const [currentTab, setCurrentTab] = useState<NavTab>('hoy')
-  const [selectedDayForRoutines, setSelectedDayForRoutines] = useState<string>('lunes-leg-day')
+  const [selectedDayForRoutines, setSelectedDayForRoutines] = useState<string>('lunes-pecho-triceps')
 
   // Modals state
   const [activeExerciseModal, setActiveExerciseModal] = useState<Exercise | null>(null)
@@ -29,9 +33,15 @@ export function App() {
   const [routineEditorOpen, setRoutineEditorOpen] = useState(false)
   const [routineToEdit, setRoutineToEdit] = useState<WorkoutDay | null>(null)
 
-  // Prevent staying on the admin tab after switching to a non-admin profile
+  // Desktop routine builder request
+  const [builderRequest, setBuilderRequest] = useState<{ routineId: string | null; token: number }>({
+    routineId: null,
+    token: 0
+  })
+
+  // Prevent staying on admin/builder tabs after switching to a non-admin profile
   useEffect(() => {
-    if (!store.isAdmin && currentTab === 'admin') {
+    if (!store.isAdmin && (currentTab === 'admin' || currentTab === 'builder')) {
       setCurrentTab('hoy')
     }
   }, [store.isAdmin, currentTab])
@@ -66,12 +76,27 @@ export function App() {
     setPlateCalcOpen(true)
   }
 
+  const openRoutineBuilder = (routineId: string | null) => {
+    setRoutineEditorOpen(false)
+    setRoutineToEdit(null)
+    setBuilderRequest(prev => ({ routineId, token: prev.token + 1 }))
+    setCurrentTab('builder')
+  }
+
   const handleOpenCreateRoutine = () => {
+    if (isDesktop && store.isAdmin) {
+      openRoutineBuilder(null)
+      return
+    }
     setRoutineToEdit(null)
     setRoutineEditorOpen(true)
   }
 
   const handleOpenEditRoutine = (routine: WorkoutDay) => {
+    if (isDesktop && store.isAdmin) {
+      openRoutineBuilder(routine.id)
+      return
+    }
     setRoutineToEdit(routine)
     setRoutineEditorOpen(true)
   }
@@ -84,126 +109,157 @@ export function App() {
     }
   }
 
+  const isWideTab = currentTab === 'admin' || currentTab === 'builder'
+
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950 font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Top Mobile Navbar */}
-      <Navbar
-        activeSessionActive={!!store.activeSession}
-        onNavigateActive={() => setCurrentTab('activo')}
+    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col lg:flex-row selection:bg-amber-500 selection:text-slate-950 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* Desktop Sidebar Navigation */}
+      <DesktopSidebar
+        currentTab={currentTab}
+        onTabChange={setCurrentTab}
+        hasActiveWorkout={!!store.activeSession}
         activeProfile={store.activeProfile}
+        isAdmin={store.isAdmin}
         onOpenProfileSwitcher={() => setProfileModalOpen(true)}
-        wide={currentTab === 'admin'}
       />
 
-      {/* Main Content Area (Optimized for Mobile Screens, wide for Admin) */}
-      <main className={`flex-1 w-full mx-auto px-4 pt-4 pb-20 ${currentTab === 'admin' ? 'max-w-7xl' : 'max-w-md'}`}>
-        {currentTab === 'hoy' && (
-          <HomeDashboard
-            routines={store.routines}
-            history={store.history}
-            prs={store.prs}
-            activeSession={store.activeSession}
-            activeProfile={store.activeProfile}
-            onStartWorkout={handleStartWorkout}
-            onNavigateActive={() => setCurrentTab('activo')}
-            onSelectDay={handleSelectDayFromDashboard}
-            onOpenCreateRoutine={handleOpenCreateRoutine}
-          />
-        )}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Top Mobile Navbar */}
+        <Navbar
+          activeSessionActive={!!store.activeSession}
+          onNavigateActive={() => setCurrentTab('activo')}
+          activeProfile={store.activeProfile}
+          onOpenProfileSwitcher={() => setProfileModalOpen(true)}
+          wide={currentTab === 'admin'}
+        />
 
-        {currentTab === 'rutinas' && (
-          <RoutinesView
-            routines={store.routines}
-            selectedDayId={selectedDayForRoutines}
-            onStartWorkout={handleStartWorkout}
-            onOpenExerciseModal={setActiveExerciseModal}
-            onOpenPlateCalculator={handleOpenPlateCalc}
-            selectedAlternatives={store.selectedAlternatives}
-            onToggleAlternative={store.toggleExerciseAlternative}
-            onOpenCreateRoutine={handleOpenCreateRoutine}
-            onOpenEditRoutine={handleOpenEditRoutine}
-            onResetRoutines={store.resetRoutinesToDefault}
-          />
-        )}
-
-        {currentTab === 'activo' && (
-          store.activeSession ? (
-            <ActiveWorkoutView
-              activeSession={store.activeSession}
+        {/* Main Content Area (Mobile-first, expands on Desktop) */}
+        <main
+          className={`flex-1 w-full mx-auto px-4 pt-4 pb-20 lg:px-8 lg:pt-6 lg:pb-10 ${
+            isWideTab ? 'max-w-7xl' : 'max-w-md lg:max-w-7xl'
+          }`}
+        >
+          {currentTab === 'hoy' && (
+            <HomeDashboard
               routines={store.routines}
-              onUpdateSet={store.updateSet}
-              onAddSet={store.addSetToExercise}
-              onRemoveSet={store.removeSetFromExercise}
-              onToggleAlternative={store.toggleExerciseAlternative}
-              onUpdateNotes={store.updateExerciseNotes}
-              onFinishWorkout={store.finishWorkout}
-              onCancelWorkout={store.cancelWorkout}
+              history={store.history}
+              prs={store.prs}
+              activeSession={store.activeSession}
+              activeProfile={store.activeProfile}
+              onStartWorkout={handleStartWorkout}
+              onNavigateActive={() => setCurrentTab('activo')}
+              onSelectDay={handleSelectDayFromDashboard}
+              onOpenCreateRoutine={handleOpenCreateRoutine}
+            />
+          )}
+
+          {currentTab === 'rutinas' && (
+            <RoutinesView
+              routines={store.routines}
+              selectedDayId={selectedDayForRoutines}
+              onStartWorkout={handleStartWorkout}
               onOpenExerciseModal={setActiveExerciseModal}
               onOpenPlateCalculator={handleOpenPlateCalc}
+              selectedAlternatives={store.selectedAlternatives}
+              onToggleAlternative={store.toggleExerciseAlternative}
+              onOpenCreateRoutine={handleOpenCreateRoutine}
+              onOpenEditRoutine={handleOpenEditRoutine}
+              onResetRoutines={store.resetRoutinesToDefault}
             />
-          ) : (
-            <div className="py-12 px-4 text-center space-y-4">
-              <div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 text-slate-500 flex items-center justify-center mx-auto text-2xl">
-                🏋️‍♂️
+          )}
+
+          {currentTab === 'activo' && (
+            store.activeSession ? (
+              <ActiveWorkoutView
+                activeSession={store.activeSession}
+                routines={store.routines}
+                onUpdateSet={store.updateSet}
+                onAddSet={store.addSetToExercise}
+                onRemoveSet={store.removeSetFromExercise}
+                onToggleAlternative={store.toggleExerciseAlternative}
+                onUpdateNotes={store.updateExerciseNotes}
+                onFinishWorkout={store.finishWorkout}
+                onCancelWorkout={store.cancelWorkout}
+                onOpenExerciseModal={setActiveExerciseModal}
+                onOpenPlateCalculator={handleOpenPlateCalc}
+              />
+            ) : (
+              <div className="py-12 px-4 text-center space-y-4">
+                <div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 text-slate-500 flex items-center justify-center mx-auto text-2xl">
+                  🏋️‍♂️
+                </div>
+                <h3 className="text-lg font-black text-white">No hay entrenamiento en curso</h3>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                  Selecciona una de tus rutinas personalizadas para iniciar tu sesión de entrenamiento con temporizadores y registro en vivo.
+                </p>
+                <button
+                  onClick={() => setCurrentTab('rutinas')}
+                  className="py-3 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                >
+                  Ver Rutinas de Entrenamiento
+                </button>
               </div>
-              <h3 className="text-lg font-black text-white">No hay entrenamiento en curso</h3>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Selecciona una de tus rutinas personalizadas para iniciar tu sesión de entrenamiento con temporizadores y registro en vivo.
-              </p>
-              <button
-                onClick={() => setCurrentTab('rutinas')}
-                className="py-3 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
-              >
-                Ver Rutinas de Entrenamiento
-              </button>
-            </div>
-          )
-        )}
+            )
+          )}
 
-        {currentTab === 'records' && (
-          <StatsView
-            prs={store.prs}
-            history={store.history}
-            onOpenPlateCalculator={handleOpenPlateCalc}
-          />
-        )}
+          {currentTab === 'records' && (
+            <StatsView
+              prs={store.prs}
+              history={store.history}
+              onOpenPlateCalculator={handleOpenPlateCalc}
+            />
+          )}
 
-        {currentTab === 'cloud' && (
-          <UserSettingsView
-            activeProfile={store.activeProfile}
-            onUpdateProfile={store.updateProfile}
-            onOpenProfileSwitcher={() => setProfileModalOpen(true)}
-            onLogout={store.logout}
-            onOpenPlateCalculator={handleOpenPlateCalc}
-            onExportBackup={store.exportBackupJSON}
-            onImportBackup={store.importBackupJSON}
-            onResetRoutines={store.resetRoutinesToDefault}
-            onSyncCloud={store.syncToCloud}
-          />
-        )}
+          {currentTab === 'cloud' && (
+            <UserSettingsView
+              activeProfile={store.activeProfile}
+              onUpdateProfile={store.updateProfile}
+              onOpenProfileSwitcher={() => setProfileModalOpen(true)}
+              onLogout={store.logout}
+              onOpenPlateCalculator={handleOpenPlateCalc}
+              onExportBackup={store.exportBackupJSON}
+              onImportBackup={store.importBackupJSON}
+              onResetRoutines={store.resetRoutinesToDefault}
+              onSyncCloud={store.syncToCloud}
+            />
+          )}
 
-        {currentTab === 'admin' && store.isAdmin && (
-          <AdminView
-            activeProfile={store.activeProfile}
-            profiles={store.profiles}
-            routines={store.routines}
-            libraryExercises={store.libraryExercises}
-            libraryGroups={store.libraryGroups}
-            libraryUpload={store.libraryUpload}
-            onUploadLibrary={store.uploadExerciseLibrary}
-            onRefreshLibrary={store.refreshLibraryFromCloud}
-            cloudUsers={store.cloudUsers}
-            onRefreshCloudUsers={store.refreshCloudUsers}
-            assignments={store.assignments}
-            onAssignRoutine={store.assignRoutineToProfile}
-            assignmentStatus={store.assignmentStatus}
-            onClearAssignmentStatus={store.clearAssignmentStatus}
-            onCreateRoutine={handleOpenCreateRoutine}
-            onEditRoutine={handleOpenEditRoutine}
-            onDeleteRoutine={store.deleteRoutine}
-          />
-        )}
-      </main>
+          {currentTab === 'admin' && store.isAdmin && (
+            <AdminView
+              activeProfile={store.activeProfile}
+              profiles={store.profiles}
+              routines={store.routines}
+              libraryExercises={store.libraryExercises}
+              libraryGroups={store.libraryGroups}
+              libraryUpload={store.libraryUpload}
+              onUploadLibrary={store.uploadExerciseLibrary}
+              onRefreshLibrary={store.refreshLibraryFromCloud}
+              cloudUsers={store.cloudUsers}
+              onRefreshCloudUsers={store.refreshCloudUsers}
+              assignments={store.assignments}
+              onAssignRoutine={store.assignRoutineToProfile}
+              assignmentStatus={store.assignmentStatus}
+              onClearAssignmentStatus={store.clearAssignmentStatus}
+              onCreateRoutine={handleOpenCreateRoutine}
+              onEditRoutine={handleOpenEditRoutine}
+              onDeleteRoutine={store.deleteRoutine}
+            />
+          )}
+
+          {currentTab === 'builder' && store.isAdmin && (
+            <RoutineBuilderView
+              routines={store.routines}
+              libraryExercises={store.libraryExercises}
+              libraryGroups={store.libraryGroups}
+              initialRoutineId={builderRequest.routineId}
+              requestToken={builderRequest.token}
+              onCreateRoutine={store.createRoutine}
+              onUpdateRoutine={store.updateRoutine}
+              onDeleteRoutine={store.deleteRoutine}
+            />
+          )}
+        </main>
+      </div>
 
       {/* Floating Rest Timer */}
       <FloatingRestTimer

@@ -48,12 +48,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const prCount = Object.keys(prs).length
 
   return (
-    <div className="space-y-5 pb-24 animate-in fade-in duration-300">
+    <div className="space-y-5 pb-24 animate-in fade-in duration-300 lg:grid lg:grid-cols-3 lg:gap-5 lg:space-y-0 lg:items-start lg:pb-4">
       {/* Active Workout Floating Banner */}
       {activeSession && (
         <div 
           onClick={onNavigateActive}
-          className="p-4 rounded-3xl bg-gradient-to-r from-amber-500/20 via-orange-600/20 to-amber-500/20 border-2 border-amber-500/60 shadow-xl shadow-amber-500/10 cursor-pointer flex items-center justify-between active:scale-98 transition-all"
+          className="p-4 rounded-3xl bg-gradient-to-r from-amber-500/20 via-orange-600/20 to-amber-500/20 border-2 border-amber-500/60 shadow-xl shadow-amber-500/10 cursor-pointer flex items-center justify-between active:scale-98 transition-all lg:col-span-3"
         >
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black animate-pulse">
@@ -77,7 +77,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       )}
 
       {/* Greeting Header */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between px-1 lg:col-span-3">
         <div>
           <h2 className="text-lg font-black text-white flex items-center gap-1.5">
             <span>¡Hola, {activeProfile.name}!</span>
@@ -97,7 +97,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
       {/* Suggested Today Hero Card */}
       {suggestedRoutine && (
-        <section aria-labelledby="today-routine-heading">
+        <section aria-labelledby="today-routine-heading" className="lg:col-span-2">
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center space-x-2">
               <Flame className="w-4 h-4 text-amber-400" />
@@ -163,7 +163,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       )}
 
       {/* Weekly Adherence Streak Tracker */}
-      <section aria-labelledby="weekly-streak-heading" className="glass-card rounded-2xl p-4">
+      <section aria-labelledby="weekly-streak-heading" className="glass-card rounded-2xl p-4 lg:col-span-1">
         <div className="flex items-center justify-between mb-3">
           <span id="weekly-streak-heading" className="text-xs font-bold uppercase tracking-wider text-slate-300">
             Racha Semanal
@@ -204,7 +204,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       </section>
 
       {/* Quick Metrics Cards */}
-      <section aria-label="Métricas rápidas" className="grid grid-cols-3 gap-2.5">
+      <section aria-label="Métricas rápidas" className="grid grid-cols-3 gap-2.5 lg:col-span-3">
         <div className="glass-panel p-3 rounded-2xl border border-slate-800 text-center">
           <Dumbbell className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
           <p className="text-base font-black text-white">{history.filter(h => h.isFinished).length}</p>
@@ -225,7 +225,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       </section>
 
       {/* Routine Days List */}
-      <section aria-labelledby="all-routines-heading" className="space-y-3">
+      <section aria-labelledby="all-routines-heading" className="space-y-3 lg:col-span-3">
         <div className="flex items-center justify-between">
           <h3 id="all-routines-heading" className="text-xs font-bold uppercase tracking-wider text-slate-300">
             Tus Rutinas ({routines.length})
@@ -233,7 +233,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <span className="text-[11px] text-slate-500">Toca para ver ejercicios</span>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2.5 lg:grid lg:grid-cols-2 lg:gap-2.5 lg:space-y-0">
           {routines.map((day) => {
             const isCompletedThisWeek = completedDaysThisWeek.has(day.dayName)
 

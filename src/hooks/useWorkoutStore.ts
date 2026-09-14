@@ -55,6 +55,15 @@ const LIBRARY_CACHE_KEY = 'lazcakon_exercise_library'
 const ASSIGNMENTS_LOG_KEY = 'lazcakon_admin_assignments'
 const ADMIN_SEEDED_KEY = 'lazcakon_admin_profile_seeded'
 
+const ROUTINES_SEED_VERSION = 2
+const LEGACY_FACTORY_ROUTINE_IDS = [
+  'lunes-leg-day',
+  'martes-upper-body',
+  'miercoles-full-body',
+  'jueves-quad-strength',
+  'viernes-rugby-power'
+]
+
 export interface LibraryUploadState {
   isUploading: boolean
   done: number
@@ -298,6 +307,25 @@ export function useWorkoutStore() {
     applyAssignments()
     return () => {
       cancelled = true
+    }
+  }, [activeProfileId])
+
+  // One-time migration: replace the old factory routines with the new 12-week
+  // strength program, keeping any custom routines the profile created
+  useEffect(() => {
+    try {
+      const versionKey = `lazcakon_${activeProfileId}_routines_seed_version`
+      if (Number(localStorage.getItem(versionKey) || '1') >= ROUTINES_SEED_VERSION) return
+
+      setRoutines(prev => {
+        const customRoutines = prev.filter(r => !LEGACY_FACTORY_ROUTINE_IDS.includes(r.id))
+        const hasLegacy = customRoutines.length !== prev.length
+        if (!hasLegacy && prev.length > 0) return prev
+        return [...INITIAL_ROUTINES, ...customRoutines]
+      })
+      localStorage.setItem(versionKey, String(ROUTINES_SEED_VERSION))
+    } catch {
+      // safe fallback
     }
   }, [activeProfileId])
 

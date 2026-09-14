@@ -1,7 +1,7 @@
 import React from 'react'
 import { Home, Calendar, PlayCircle, Trophy, Settings, ShieldCheck } from 'lucide-react'
 
-export type NavTab = 'hoy' | 'rutinas' | 'activo' | 'records' | 'cloud' | 'admin'
+export type NavTab = 'hoy' | 'rutinas' | 'activo' | 'records' | 'cloud' | 'admin' | 'builder'
 
 interface BottomNavProps {
   currentTab: NavTab
@@ -34,7 +34,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#090d16]/95 backdrop-blur-2xl border-t border-slate-800/90 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)] pt-1 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#090d16]/95 backdrop-blur-2xl border-t border-slate-800/90 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)] pt-1 px-2 lg:hidden">
       <div className="max-w-md lg:max-w-2xl mx-auto flex items-center justify-around">
         {tabs.map(tab => {
           const Icon = tab.icon

@@ -3,6 +3,8 @@ import { X, Calendar, Plus, Trash2, Edit3, Save, BookOpen } from 'lucide-react'
 import type { WorkoutDay, Exercise, LibraryExercise } from '../types/workout'
 import { ExerciseEditorModal } from './ExerciseEditorModal'
 import { ExerciseLibraryPicker } from './ExerciseLibraryPicker'
+import { RoutineMetaFields } from './routine/RoutineMetaFields'
+import { createDefaultRoutineMeta, type RoutineMeta } from './routine/routineDefaults'
 
 interface RoutineEditorModalProps {
   isOpen: boolean
@@ -12,13 +14,6 @@ interface RoutineEditorModalProps {
   routineToEdit?: WorkoutDay | null
 }
 
-const AVAILABLE_BANNERS = [
-  { id: '/assets/banner_leg_day.jpg', label: 'Pierna / Fuerza (Verde)' },
-  { id: '/assets/banner_upper_body.jpg', label: 'Torso / Empuje-Tirón (Cyan)' },
-  { id: '/assets/banner_full_body.jpg', label: 'Full Body (Púrpura)' },
-  { id: '/assets/banner_rugby_conditioning.jpg', label: 'Rugby / Potencia (Ámbar)' }
-]
-
 export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   isOpen,
   onClose,
@@ -26,11 +21,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
   onDeleteRoutine,
   routineToEdit
 }) => {
-  const [dayName, setDayName] = useState('Lunes')
-  const [title, setTitle] = useState('')
-  const [tagline, setTagline] = useState('')
-  const [banner, setBanner] = useState('/assets/banner_leg_day.jpg')
-  const [accentColor, setAccentColor] = useState<'emerald' | 'amber' | 'cyan' | 'purple'>('emerald')
+  const [meta, setMeta] = useState<RoutineMeta>(createDefaultRoutineMeta)
   const [exercises, setExercises] = useState<Exercise[]>([])
 
   // Nested exercise editor
@@ -42,35 +33,37 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
 
   useEffect(() => {
     if (routineToEdit) {
-      setDayName(routineToEdit.dayName)
-      setTitle(routineToEdit.title)
-      setTagline(routineToEdit.tagline)
-      setBanner(routineToEdit.banner)
-      setAccentColor(routineToEdit.accentColor)
+      setMeta({
+        dayName: routineToEdit.dayName,
+        title: routineToEdit.title,
+        tagline: routineToEdit.tagline,
+        banner: routineToEdit.banner,
+        accentColor: routineToEdit.accentColor
+      })
       setExercises(routineToEdit.exercises)
     } else {
-      setDayName('Sábado')
-      setTitle('Brazos, Hombros & Core')
-      setTagline('Hipertrofia & Fuerza')
-      setBanner('/assets/banner_upper_body.jpg')
-      setAccentColor('cyan')
+      setMeta(createDefaultRoutineMeta())
       setExercises([])
     }
   }, [routineToEdit, isOpen])
 
   if (!isOpen) return null
 
+  const handleMetaChange = (updates: Partial<RoutineMeta>) => {
+    setMeta(prev => ({ ...prev, ...updates }))
+  }
+
   const handleSaveRoutine = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) return
+    if (!meta.title.trim()) return
 
     const newOrUpdatedRoutine: WorkoutDay = {
       id: routineToEdit ? routineToEdit.id : 'routine_' + Date.now(),
-      dayName: dayName.trim() || 'Día',
-      title: title.trim(),
-      tagline: tagline.trim() || 'Entrenamiento personalizado',
-      banner,
-      accentColor,
+      dayName: meta.dayName.trim() || 'Día',
+      title: meta.title.trim(),
+      tagline: meta.tagline.trim() || 'Entrenamiento personalizado',
+      banner: meta.banner,
+      accentColor: meta.accentColor,
       exercises
     }
 
@@ -148,80 +141,7 @@ export const RoutineEditorModal: React.FC<RoutineEditorModalProps> = ({
 
           {/* Form */}
           <form onSubmit={handleSaveRoutine} className="space-y-3.5 mt-4">
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Día / Etiqueta
-                </label>
-                <input
-                  type="text"
-                  placeholder="ej. Sábado"
-                  value={dayName}
-                  onChange={e => setDayName(e.target.value)}
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Título de la Rutina *
-                </label>
-                <input
-                  type="text"
-                  placeholder="ej. Piernas, Glúteos & Core"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Subtítulo / Objetivo
-              </label>
-              <input
-                type="text"
-                placeholder="ej. Fuerza + Hipertrofia"
-                value={tagline}
-                onChange={e => setTagline(e.target.value)}
-                className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Banner Visual
-                </label>
-                <select
-                  value={banner}
-                  onChange={e => setBanner(e.target.value)}
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-amber-500"
-                >
-                  {AVAILABLE_BANNERS.map(b => (
-                    <option key={b.id} value={b.id}>{b.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Color de Acento
-                </label>
-                <select
-                  value={accentColor}
-                  onChange={e => setAccentColor(e.target.value as any)}
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-amber-500"
-                >
-                  <option value="emerald">Verde Esmeralda</option>
-                  <option value="cyan">Cyan Eléctrico</option>
-                  <option value="amber">Ámbar Fuego</option>
-                  <option value="purple">Púrpura Neón</option>
-                </select>
-              </div>
-            </div>
+            <RoutineMetaFields value={meta} onChange={handleMetaChange} />
 
             {/* Exercises in Routine List */}
             <div className="pt-2 border-t border-slate-800">

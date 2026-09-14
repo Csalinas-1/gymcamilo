@@ -88,9 +88,9 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
   })
 
   return (
-    <div className="space-y-4 pb-28 animate-in fade-in duration-300">
+    <div className="space-y-4 pb-28 animate-in fade-in duration-300 lg:max-w-5xl lg:mx-auto lg:pb-4">
       {/* Session Active Top Bar */}
-      <div className="sticky top-14 z-30 bg-[#090d16]/95 backdrop-blur-xl -mx-4 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+      <div className="sticky top-14 lg:top-0 z-30 bg-[#090d16]/95 backdrop-blur-xl -mx-4 px-4 lg:-mx-8 lg:px-8 py-3 border-b border-slate-800 flex items-center justify-between">
         <div>
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>

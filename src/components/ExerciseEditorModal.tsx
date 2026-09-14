@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { X, Dumbbell, Save, Plus } from 'lucide-react'
 import type { Exercise } from '../types/workout'
+import { ExerciseFields } from './routine/ExerciseFields'
+import { createBlankExercise } from './routine/routineDefaults'
 
 interface ExerciseEditorModalProps {
   isOpen: boolean
@@ -15,58 +17,42 @@ export const ExerciseEditorModal: React.FC<ExerciseEditorModalProps> = ({
   onSaveExercise,
   exerciseToEdit
 }) => {
-  const [name, setName] = useState('')
-  const [targetMuscles, setTargetMuscles] = useState('')
-  const [defaultSets, setDefaultSets] = useState(3)
-  const [repRange, setRepRange] = useState('10-12')
-  const [restSeconds, setRestSeconds] = useState(60)
-  const [alternative, setAlternative] = useState('')
-  const [objective, setObjective] = useState('Hipertrofia')
-  const [videoUrl, setVideoUrl] = useState('')
+  const [form, setForm] = useState<Exercise>(createBlankExercise)
 
   useEffect(() => {
-    if (exerciseToEdit) {
-      setName(exerciseToEdit.name)
-      setTargetMuscles(exerciseToEdit.targetMuscles)
-      setDefaultSets(exerciseToEdit.defaultSets)
-      setRepRange(exerciseToEdit.repRange)
-      setRestSeconds(exerciseToEdit.restSeconds)
-      setAlternative(exerciseToEdit.alternative || '')
-      setObjective(exerciseToEdit.objective || 'Hipertrofia')
-      setVideoUrl(exerciseToEdit.defaultVideoUrl || '')
-    } else {
-      setName('')
-      setTargetMuscles('Piernas / Torso')
-      setDefaultSets(3)
-      setRepRange('10-12')
-      setRestSeconds(60)
-      setAlternative('Mancuernas / Polea')
-      setObjective('Hipertrofia')
-      setVideoUrl('')
-    }
+    setForm(exerciseToEdit ? { ...createBlankExercise(), ...exerciseToEdit } : createBlankExercise())
   }, [exerciseToEdit, isOpen])
 
   if (!isOpen) return null
 
+  const handleChange = (updates: Partial<Exercise>) => {
+    setForm(prev => ({ ...prev, ...updates }))
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!form.name.trim()) return
+
+    const restSeconds = Number(form.restSeconds)
 
     const exercise: Exercise = {
+      ...form,
       id: exerciseToEdit ? exerciseToEdit.id : 'ex_' + Date.now(),
-      name: name.trim(),
-      targetMuscles: targetMuscles.trim() || 'General',
-      defaultSets: Number(defaultSets) || 3,
-      repRange: repRange.trim() || '10-12',
-      restSeconds: Number(restSeconds) || 60,
+      name: form.name.trim(),
+      targetMuscles: form.targetMuscles.trim() || 'General',
+      defaultSets: Number(form.defaultSets) || 3,
+      repRange: form.repRange.trim() || '10-12',
+      restSeconds: Number.isFinite(restSeconds) ? restSeconds : 60,
       restText: `${restSeconds} s`,
-      alternative: alternative.trim() || 'Máquina disponible',
-      objective: objective.trim() || 'Fuerza + masa',
-      defaultVideoUrl: videoUrl.trim() || undefined,
-      techniqueCues: exerciseToEdit?.techniqueCues || [
-        'Mantener buena postura y control en todo el rango de movimiento',
-        'Fase excéntrica controlada'
-      ]
+      alternative: form.alternative.trim() || 'Máquina disponible',
+      objective: form.objective.trim() || 'Fuerza + masa',
+      defaultVideoUrl: form.defaultVideoUrl?.trim() || undefined,
+      techniqueCues: form.techniqueCues?.length
+        ? form.techniqueCues
+        : [
+            'Mantener buena postura y control en todo el rango de movimiento',
+            'Fase excéntrica controlada'
+          ]
     }
 
     onSaveExercise(exercise)
@@ -99,121 +85,7 @@ export const ExerciseEditorModal: React.FC<ExerciseEditorModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5 mt-4">
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-              Nombre del Ejercicio *
-            </label>
-            <input
-              type="text"
-              placeholder="ej. Prensa 45°, Press Militar, Hip Thrust..."
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Zona / Músculos
-              </label>
-              <input
-                type="text"
-                placeholder="ej. Cuádriceps, glúteos"
-                value={targetMuscles}
-                onChange={e => setTargetMuscles(e.target.value)}
-                className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Objetivo
-              </label>
-              <input
-                type="text"
-                placeholder="ej. Fuerza + masa"
-                value={objective}
-                onChange={e => setObjective(e.target.value)}
-                className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Series
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="10"
-                value={defaultSets}
-                onChange={e => setDefaultSets(Number(e.target.value))}
-                className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl p-2 text-center text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Reps / Tiempo
-              </label>
-              <input
-                type="text"
-                placeholder="10-12"
-                value={repRange}
-                onChange={e => setRepRange(e.target.value)}
-                className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl p-2 text-center text-white font-mono font-bold focus:outline-none focus:border-emerald-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Descanso (seg)
-              </label>
-              <select
-                value={restSeconds}
-                onChange={e => setRestSeconds(Number(e.target.value))}
-                className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl p-2 text-center text-white font-bold focus:outline-none focus:border-emerald-500"
-              >
-                <option value="0">0 s (Cardio)</option>
-                <option value="30">30 s</option>
-                <option value="45">45 s</option>
-                <option value="60">60 s</option>
-                <option value="75">75 s</option>
-                <option value="90">90 s</option>
-                <option value="120">120 s</option>
-                <option value="180">180 s</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-              Máquina / Ejercicio Alternativo
-            </label>
-            <input
-              type="text"
-              placeholder="ej. Hack squat / Smith, Polea, Mancuernas..."
-              value={alternative}
-              onChange={e => setAlternative(e.target.value)}
-              className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-              URL Video YouTube de Técnica (Opcional)
-            </label>
-            <input
-              type="url"
-              placeholder="https://www.youtube.com/watch?v=..."
-              value={videoUrl}
-              onChange={e => setVideoUrl(e.target.value)}
-              className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
-            />
-          </div>
+          <ExerciseFields value={form} onChange={handleChange} autoFocusName={!exerciseToEdit} />
 
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
             <button

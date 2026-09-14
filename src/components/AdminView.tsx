@@ -149,7 +149,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   ]
 
   return (
-    <div className="space-y-5 pb-24 animate-in fade-in duration-300">
+    <div className="space-y-5 pb-24 animate-in fade-in duration-300 lg:pb-4">
       {/* Admin Header */}
       <section className="glass-card rounded-3xl p-5 border border-amber-500/30">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">

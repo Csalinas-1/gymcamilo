@@ -126,7 +126,7 @@ export const UserSettingsView: React.FC<UserSettingsViewProps> = ({
   }
 
   return (
-    <div className="space-y-5 pb-24 animate-in fade-in duration-300">
+    <div className="space-y-5 pb-24 animate-in fade-in duration-300 lg:max-w-4xl lg:mx-auto lg:pb-4">
       {/* Profile Header & Account Switcher */}
       <section aria-labelledby="profile-heading" className="glass-card rounded-3xl p-5 border border-amber-500/30">
         <div className="flex items-center justify-between">

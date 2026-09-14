@@ -32,9 +32,9 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({
   const currentDay = routines.find(r => r.id === activeDayId) || routines[0]
 
   return (
-    <div className="space-y-4 pb-24 animate-in fade-in duration-300">
+    <div className="space-y-4 pb-24 animate-in fade-in duration-300 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-5 lg:space-y-0 lg:items-start lg:pb-4">
       {/* 5-Day Selector Pills & Add Routine button */}
-      <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4">
+      <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4 lg:col-span-2 lg:row-start-1 lg:mx-0 lg:px-0">
         {routines.map(day => {
           const isSelected = day.id === currentDay?.id
           return (
@@ -63,7 +63,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({
 
       {/* Routine Banner & Header */}
       {currentDay && (
-        <div className="rounded-3xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl relative">
+        <div className="rounded-3xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl relative lg:col-start-2 lg:row-start-2 lg:sticky lg:top-20">
           <div className="h-44 w-full relative">
             <img
               src={currentDay.banner}
@@ -107,7 +107,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({
       )}
 
       {/* Exercise Cards List */}
-      <div className="space-y-3">
+      <div className="space-y-3 lg:col-start-1 lg:row-start-2">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
             Lista de Ejercicios ({currentDay?.exercises.length || 0})
@@ -208,7 +208,7 @@ export const RoutinesView: React.FC<RoutinesViewProps> = ({
       </div>
 
       {/* Reset to initial routines button */}
-      <div className="pt-3 text-center">
+      <div className="pt-3 text-center lg:col-span-2 lg:row-start-3">
         <button
           onClick={() => {
             if (confirm('¿Restablecer las rutinas a la configuración inicial de 5 días?')) {

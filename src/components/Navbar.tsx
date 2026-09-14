@@ -18,7 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   wide = false
 }) => {
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#090d16]/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3">
+    <header className="sticky top-0 z-40 w-full bg-[#090d16]/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3 lg:hidden">
       <div className={`mx-auto flex items-center justify-between ${wide ? 'max-w-7xl' : 'max-w-md'}`}>
         {/* Brand & Logo */}
         <div className="flex items-center space-x-2.5">

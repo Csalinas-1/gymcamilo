@@ -34,7 +34,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
   }
 
   return (
-    <div className="space-y-5 pb-24 animate-in fade-in duration-300">
+    <div className="space-y-5 pb-24 animate-in fade-in duration-300 lg:max-w-5xl lg:mx-auto lg:pb-4">
       {/* Trophy Room Header */}
       <div className="glass-card rounded-3xl p-5 border border-amber-500/30 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none"></div>
