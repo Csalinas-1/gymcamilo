@@ -36,6 +36,7 @@ export interface RoutineAssignment {
   assignedByProfileName: string
   assignedAt: string
   routine: WorkoutDay
+  pendingSync?: boolean
 }
 
 export interface UserProfile {
@@ -62,6 +63,7 @@ export interface Exercise {
   restSeconds: number
   restText: string
   alternative: string
+  alternativeVideoUrl?: string
   objective: string
   defaultVideoUrl?: string
   techniqueCues?: string[]

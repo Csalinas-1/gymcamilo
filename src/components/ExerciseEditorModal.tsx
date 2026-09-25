@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { X, Dumbbell, Save, Plus } from 'lucide-react'
-import type { Exercise } from '../types/workout'
+import type { Exercise, LibraryExercise } from '../types/workout'
 import { ExerciseFields } from './routine/ExerciseFields'
+import { ExerciseLibraryPicker } from './ExerciseLibraryPicker'
 import { createBlankExercise } from './routine/routineDefaults'
 
 interface ExerciseEditorModalProps {
@@ -18,9 +19,11 @@ export const ExerciseEditorModal: React.FC<ExerciseEditorModalProps> = ({
   exerciseToEdit
 }) => {
   const [form, setForm] = useState<Exercise>(createBlankExercise)
+  const [alternativePickerOpen, setAlternativePickerOpen] = useState(false)
 
   useEffect(() => {
     setForm(exerciseToEdit ? { ...createBlankExercise(), ...exerciseToEdit } : createBlankExercise())
+    setAlternativePickerOpen(false)
   }, [exerciseToEdit, isOpen])
 
   if (!isOpen) return null
@@ -59,7 +62,17 @@ export const ExerciseEditorModal: React.FC<ExerciseEditorModalProps> = ({
     onClose()
   }
 
+  const handleAddAlternative = (libraryExercise: LibraryExercise) => {
+    setForm(prev => ({
+      ...prev,
+      alternative: libraryExercise.name,
+      alternativeVideoUrl: libraryExercise.url
+    }))
+    setAlternativePickerOpen(false)
+  }
+
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-[#0d1424] border border-slate-700/80 rounded-3xl p-5 shadow-2xl text-slate-100 my-auto">
         {/* Header */}
@@ -85,7 +98,12 @@ export const ExerciseEditorModal: React.FC<ExerciseEditorModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5 mt-4">
-          <ExerciseFields value={form} onChange={handleChange} autoFocusName={!exerciseToEdit} />
+          <ExerciseFields
+            value={form}
+            onChange={handleChange}
+            autoFocusName={!exerciseToEdit}
+            onPickAlternative={() => setAlternativePickerOpen(true)}
+          />
 
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
             <button
@@ -106,5 +124,12 @@ export const ExerciseEditorModal: React.FC<ExerciseEditorModalProps> = ({
         </form>
       </div>
     </div>
+
+    <ExerciseLibraryPicker
+      isOpen={alternativePickerOpen}
+      onClose={() => setAlternativePickerOpen(false)}
+      onAddExercise={handleAddAlternative}
+    />
+    </>
   )
 }

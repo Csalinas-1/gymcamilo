@@ -142,6 +142,7 @@ export function App() {
           {currentTab === 'hoy' && (
             <HomeDashboard
               routines={store.routines}
+              assignedRoutines={store.assignedRoutines}
               history={store.history}
               prs={store.prs}
               activeSession={store.activeSession}
@@ -156,6 +157,7 @@ export function App() {
           {currentTab === 'rutinas' && (
             <RoutinesView
               routines={store.routines}
+              assignedRoutines={store.assignedRoutines}
               selectedDayId={selectedDayForRoutines}
               onStartWorkout={handleStartWorkout}
               onOpenExerciseModal={setActiveExerciseModal}
@@ -164,6 +166,7 @@ export function App() {
               onToggleAlternative={store.toggleExerciseAlternative}
               onOpenCreateRoutine={handleOpenCreateRoutine}
               onOpenEditRoutine={handleOpenEditRoutine}
+              onDuplicateAssignedRoutine={store.duplicateAssignedRoutine}
               onResetRoutines={store.resetRoutinesToDefault}
             />
           )}
@@ -172,7 +175,7 @@ export function App() {
             store.activeSession ? (
               <ActiveWorkoutView
                 activeSession={store.activeSession}
-                routines={store.routines}
+                routines={store.allRoutines}
                 onUpdateSet={store.updateSet}
                 onAddSet={store.addSetToExercise}
                 onRemoveSet={store.removeSetFromExercise}
@@ -238,6 +241,7 @@ export function App() {
               onRefreshCloudUsers={store.refreshCloudUsers}
               assignments={store.assignments}
               onAssignRoutine={store.assignRoutineToProfile}
+              onUnassignRoutine={store.unassignRoutine}
               assignmentStatus={store.assignmentStatus}
               onClearAssignmentStatus={store.clearAssignmentStatus}
               onCreateRoutine={handleOpenCreateRoutine}

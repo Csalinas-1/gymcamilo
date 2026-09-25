@@ -1,9 +1,10 @@
 import React from 'react'
-import { Play, CheckCircle2, Circle, Flame, Dumbbell, Award, ArrowRight, Zap, Info, Plus } from 'lucide-react'
-import type { WorkoutDay, WorkoutSession, PersonalRecord, UserProfile } from '../types/workout'
+import { Play, CheckCircle2, Circle, Flame, Dumbbell, Award, ArrowRight, Zap, Info, Plus, Send } from 'lucide-react'
+import type { WorkoutDay, WorkoutSession, PersonalRecord, UserProfile, RoutineAssignment } from '../types/workout'
 
 interface HomeDashboardProps {
   routines: WorkoutDay[]
+  assignedRoutines: RoutineAssignment[]
   history: WorkoutSession[]
   prs: Record<string, PersonalRecord>
   activeSession: WorkoutSession | null
@@ -16,6 +17,7 @@ interface HomeDashboardProps {
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   routines,
+  assignedRoutines,
   history,
   prs,
   activeSession,
@@ -37,7 +39,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   }
 
   const todayDayName = dayNamesMap[dayIndex] || 'Lunes'
-  const suggestedRoutine = routines.find(r => r.dayName === todayDayName) || routines[0]
+
+  const ownRoutineIds = new Set(routines.map(r => r.id))
+  const visibleAssigned = assignedRoutines.filter(a => !ownRoutineIds.has(a.routineId))
+  const allRoutines = [...routines, ...visibleAssigned.map(a => a.routine)]
+  const assignedByRoutineId = new Map(visibleAssigned.map(a => [a.routine.id, a]))
+
+  const suggestedRoutine = allRoutines.find(r => r.dayName === todayDayName) || allRoutines[0]
 
   // Calculate weekly completion
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -122,13 +130,19 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#090d16] via-[#090d16]/70 to-transparent"></div>
 
-              <div className="absolute top-3 left-3 flex gap-1.5">
+              <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                 <span className="px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-lg">
                   {suggestedRoutine.dayName}
                 </span>
                 <span className="px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-slate-200 text-[11px] font-bold border border-slate-700">
                   {suggestedRoutine.tagline}
                 </span>
+                {assignedByRoutineId.has(suggestedRoutine.id) && (
+                  <span className="px-2.5 py-1 rounded-full bg-cyan-500/90 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1">
+                    <Send className="w-3 h-3" />
+                    Asignada
+                  </span>
+                )}
               </div>
             </div>
 
@@ -228,14 +242,19 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       <section aria-labelledby="all-routines-heading" className="space-y-3 lg:col-span-3">
         <div className="flex items-center justify-between">
           <h3 id="all-routines-heading" className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Tus Rutinas ({routines.length})
+            Tus Rutinas ({allRoutines.length})
           </h3>
-          <span className="text-[11px] text-slate-500">Toca para ver ejercicios</span>
+          <span className="text-[11px] text-slate-500">
+            {visibleAssigned.length > 0
+              ? `${routines.length} propias • ${visibleAssigned.length} asignadas`
+              : 'Toca para ver ejercicios'}
+          </span>
         </div>
 
         <div className="space-y-2.5 lg:grid lg:grid-cols-2 lg:gap-2.5 lg:space-y-0">
-          {routines.map((day) => {
+          {allRoutines.map((day) => {
             const isCompletedThisWeek = completedDaysThisWeek.has(day.dayName)
+            const assigned = assignedByRoutineId.get(day.id)
 
             return (
               <div
@@ -266,6 +285,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center space-x-2">
+                  {assigned && (
+                    <span className="text-[10px] font-bold text-cyan-300 bg-cyan-500/20 px-2 py-0.5 rounded-md border border-cyan-500/30">
+                      Asignada
+                    </span>
+                  )}
                   {isCompletedThisWeek && (
                     <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-500/30">
                       Hecho

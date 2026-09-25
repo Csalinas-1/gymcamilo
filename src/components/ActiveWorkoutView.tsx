@@ -58,7 +58,13 @@ export const ActiveWorkoutView: React.FC<ActiveWorkoutViewProps> = ({
 
     updateElapsed()
     const interval = setInterval(updateElapsed, 1000)
-    return () => clearInterval(interval)
+    document.addEventListener('visibilitychange', updateElapsed)
+    window.addEventListener('focus', updateElapsed)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', updateElapsed)
+      window.removeEventListener('focus', updateElapsed)
+    }
   }, [activeSession.startedAt])
 
   const formatElapsed = (seconds: number) => {

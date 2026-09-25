@@ -37,6 +37,7 @@ interface AdminViewProps {
   onRefreshCloudUsers: () => Promise<{ success: boolean; users: CloudUserSummary[] }>
   assignments: RoutineAssignment[]
   onAssignRoutine: (targetProfileId: string, targetProfileName: string, routine: WorkoutDay) => Promise<{ success: boolean; message: string }>
+  onUnassignRoutine: (assignment: RoutineAssignment) => Promise<{ success: boolean; message: string }>
   assignmentStatus: { type: 'success' | 'error'; message: string } | null
   onClearAssignmentStatus: () => void
   onCreateRoutine: () => void
@@ -69,6 +70,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onRefreshCloudUsers,
   assignments,
   onAssignRoutine,
+  onUnassignRoutine,
   assignmentStatus,
   onClearAssignmentStatus,
   onCreateRoutine,
@@ -468,12 +470,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
               <button
                 onClick={handleAssign}
-                disabled={!selectedRoutine || !selectedTarget || !firebaseReady}
+                disabled={!selectedRoutine || !selectedTarget || (selectedTarget?.source === 'cloud' && !firebaseReady)}
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-98 transition-all"
               >
                 <Send className="w-4 h-4" />
                 <span>Asignar Rutina</span>
               </button>
+
+              {!firebaseReady && (
+                <p className="text-[10px] text-slate-500">
+                  Sin Firebase solo puedes asignar a perfiles locales de este dispositivo.
+                </p>
+              )}
 
               {assignmentStatus && (
                 <div className={`p-3 rounded-2xl border text-xs font-bold flex items-start gap-2 ${
@@ -518,12 +526,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-white truncate">{assignment.routineTitle}</span>
-                        <span className="text-slate-500 font-mono flex-shrink-0">
-                          {new Date(assignment.assignedAt).toLocaleDateString()}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="text-slate-500 font-mono">
+                            {new Date(assignment.assignedAt).toLocaleDateString()}
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (confirm(`¿Desasignar "${assignment.routineTitle}" de ${assignment.assignedToProfileName}?`)) {
+                                void onUnassignRoutine(assignment)
+                              }
+                            }}
+                            title="Desasignar rutina"
+                            className="p-1 rounded-lg bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-rose-300 border border-slate-700 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-slate-400 truncate">
                         Para: <strong className="text-amber-300">{assignment.assignedToProfileName}</strong>
+                        {assignment.pendingSync ? ' • Pendiente de sincronizar' : ''}
                       </p>
                     </div>
                   ))}
@@ -567,32 +589,50 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <ShieldCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
             </div>
 
-            {targets.map(target => (
-              <div
-                key={target.id}
-                className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 flex items-center justify-between"
-              >
-                <div className="flex items-center space-x-3 min-w-0">
-                  <span className="text-2xl">{target.avatar || '🏋️'}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-white truncate">{target.name}</p>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                      target.source === 'cloud' ? 'text-cyan-300' : 'text-slate-400'
+            {targets.map(target => {
+              const assignedCount = assignments.filter(a => a.assignedToProfileId === target.id).length
+              return (
+                <div
+                  key={target.id}
+                  className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 flex items-center justify-between gap-2"
+                >
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <span className="text-2xl">{target.avatar || '🏋️'}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white truncate">{target.name}</p>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                        target.source === 'cloud' ? 'text-cyan-300' : 'text-slate-400'
+                      }`}>
+                        {target.source === 'cloud' ? 'Sincronizado en Firebase' : 'Perfil local'}
+                        {target.isAdmin ? ' • Admin' : ''}
+                      </span>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        {assignedCount > 0 ? `${assignedCount} rutina(s) asignada(s)` : 'Sin rutinas asignadas'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black border ${
+                      target.source === 'cloud'
+                        ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                        : 'bg-slate-800 text-slate-300 border-slate-700'
                     }`}>
-                      {target.source === 'cloud' ? 'Sincronizado en Firebase' : 'Perfil local'}
-                      {target.isAdmin ? ' • Admin' : ''}
+                      {target.source === 'cloud' ? 'Nube' : 'Local'}
                     </span>
+                    <button
+                      onClick={() => {
+                        setSelectedTargetId(target.id)
+                        setSection('rutinas')
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1 active:scale-95 transition-all"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>Asignar</span>
+                    </button>
                   </div>
                 </div>
-                <span className={`px-2 py-1 rounded-lg text-[10px] font-black border flex-shrink-0 ${
-                  target.source === 'cloud'
-                    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                    : 'bg-slate-800 text-slate-300 border-slate-700'
-                }`}>
-                  {target.source === 'cloud' ? 'Nube' : 'Local'}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {targets.length === 0 && (

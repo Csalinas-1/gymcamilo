@@ -1,4 +1,5 @@
 import React from 'react'
+import { BookOpen } from 'lucide-react'
 import type { Exercise } from '../../types/workout'
 import { REST_OPTIONS } from './routineDefaults'
 
@@ -6,12 +7,14 @@ interface ExerciseFieldsProps {
   value: Exercise
   onChange: (updates: Partial<Exercise>) => void
   autoFocusName?: boolean
+  onPickAlternative?: () => void
 }
 
 export const ExerciseFields: React.FC<ExerciseFieldsProps> = ({
   value,
   onChange,
-  autoFocusName = false
+  autoFocusName = false,
+  onPickAlternative
 }) => {
   const handleRestChange = (seconds: number) => {
     onChange({ restSeconds: seconds, restText: `${seconds} s` })
@@ -111,13 +114,31 @@ export const ExerciseFields: React.FC<ExerciseFieldsProps> = ({
         <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
           Máquina / Ejercicio Alternativo
         </label>
-        <input
-          type="text"
-          placeholder="ej. Hack squat / Smith, Polea, Mancuernas..."
-          value={value.alternative}
-          onChange={e => onChange({ alternative: e.target.value })}
-          className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="ej. Hack squat / Smith, Polea, Mancuernas..."
+            value={value.alternative}
+            onChange={e => onChange({ alternative: e.target.value, alternativeVideoUrl: undefined })}
+            className="flex-1 min-w-0 text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+          />
+          {onPickAlternative && (
+            <button
+              type="button"
+              onClick={onPickAlternative}
+              title="Elegir alternativa desde la librería"
+              className="flex-shrink-0 px-3 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-xs font-bold border border-cyan-500/40 flex items-center gap-1.5 active:scale-95 transition-all"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Librería</span>
+            </button>
+          )}
+        </div>
+        {value.alternativeVideoUrl && (
+          <p className="text-[10px] text-cyan-400 mt-1 truncate">
+            Alternativa vinculada a la librería con video de técnica.
+          </p>
+        )}
       </div>
 
       <div>

@@ -90,6 +90,17 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
               <div>
                 <p className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Alternativa de Ejercicio</p>
                 <p className="text-xs font-semibold text-cyan-300">{exercise.alternative}</p>
+                {exercise.alternativeVideoUrl && (
+                  <a
+                    href={exercise.alternativeVideoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 underline inline-flex items-center gap-1 mt-0.5"
+                  >
+                    <Video className="w-3 h-3" />
+                    Ver tutorial de la alternativa
+                  </a>
+                )}
               </div>
             </div>
             {onToggleAlternative && (

@@ -20,6 +20,7 @@ import { RoutineMetaFields } from './routine/RoutineMetaFields'
 import { createBlankRoutineMeta, createBlankExercise, type RoutineMeta } from './routine/routineDefaults'
 import { ExerciseFields } from './routine/ExerciseFields'
 import { ExerciseLibraryList } from './routine/ExerciseLibraryList'
+import { ExerciseLibraryPicker } from './ExerciseLibraryPicker'
 
 interface RoutineBuilderViewProps {
   routines: WorkoutDay[]
@@ -156,6 +157,7 @@ export const RoutineBuilderView: React.FC<RoutineBuilderViewProps> = ({
 
   const [draft, setDraft] = useState<BuilderDraft>(bootState.draft)
   const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null)
+  const [alternativePickerExerciseId, setAlternativePickerExerciseId] = useState<string | null>(null)
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const processedInitialRef = useRef<number>(bootState.processedToken)
@@ -260,6 +262,15 @@ export const RoutineBuilderView: React.FC<RoutineBuilderViewProps> = ({
     setDraft(prev => ({ ...prev, exercises: [...prev.exercises, exercise], isDirty: true }))
   }
 
+  const applyAlternativeFromLibrary = (libraryExercise: LibraryExercise) => {
+    if (!alternativePickerExerciseId) return
+    updateExercise(alternativePickerExerciseId, {
+      alternative: libraryExercise.name,
+      alternativeVideoUrl: libraryExercise.url
+    })
+    setAlternativePickerExerciseId(null)
+  }
+
   const removeExercise = (exerciseId: string) => {
     setDraft(prev => ({
       ...prev,
@@ -348,6 +359,7 @@ export const RoutineBuilderView: React.FC<RoutineBuilderViewProps> = ({
   const canSave = draft.isDirty || draft.isNew
 
   return (
+    <>
     <div className="space-y-4 pb-24 lg:pb-4 animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -581,6 +593,7 @@ export const RoutineBuilderView: React.FC<RoutineBuilderViewProps> = ({
                             value={exercise}
                             onChange={updates => updateExercise(exercise.id, updates)}
                             autoFocusName={!exercise.name.trim()}
+                            onPickAlternative={() => setAlternativePickerExerciseId(exercise.id)}
                           />
                         </div>
                       )}
@@ -648,5 +661,12 @@ export const RoutineBuilderView: React.FC<RoutineBuilderViewProps> = ({
         </aside>
       </div>
     </div>
+
+    <ExerciseLibraryPicker
+      isOpen={!!alternativePickerExerciseId}
+      onClose={() => setAlternativePickerExerciseId(null)}
+      onAddExercise={applyAlternativeFromLibrary}
+    />
+    </>
   )
 }

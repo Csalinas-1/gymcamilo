@@ -4,6 +4,8 @@ import {
   doc, 
   getDoc,
   setDoc, 
+  updateDoc,
+  deleteField,
   collection, 
   getDocs, 
   type Firestore,
@@ -232,6 +234,32 @@ export async function assignRoutineToUser(
     return {
       success: false,
       message: error.message || 'Error al asignar la rutina en Firebase.'
+    }
+  }
+}
+
+export async function unassignRoutineFromUser(
+  profileId: string,
+  assignmentId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const instance = initFirebase()
+    if (!instance) {
+      return { success: false, message: 'Firebase no está configurado.' }
+    }
+
+    const { db } = instance
+    await updateDoc(doc(db, 'users', profileId), {
+      [`assignedRoutines.${assignmentId}`]: deleteField(),
+      updatedAt: new Date().toISOString()
+    })
+
+    return { success: true, message: 'Rutina desasignada del atleta.' }
+  } catch (error: any) {
+    console.error('Routine unassign error:', error)
+    return {
+      success: false,
+      message: error.message || 'Error al desasignar la rutina en Firebase.'
     }
   }
 }

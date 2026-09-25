@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { INITIAL_ROUTINES } from '../data/initialRoutines'
 import { EXERCISE_LIBRARY, MUSCLE_GROUPS } from '../data/exerciseLibrary'
 import type { 
@@ -18,6 +18,7 @@ import {
   fetchAssignedRoutines, 
   fetchCloudProfiles, 
   assignRoutineToUser,
+  unassignRoutineFromUser,
   syncAllToFirestore,
   isFirebaseConfigured,
   type CloudUserSummary
@@ -77,6 +78,16 @@ export interface RestTimerState {
   remainingSeconds: number
   exerciseName: string
   isMinimized: boolean
+  endsAt: number | null
+}
+
+const DEFAULT_REST_TIMER: RestTimerState = {
+  isActive: false,
+  totalSeconds: 0,
+  remainingSeconds: 0,
+  exerciseName: '',
+  isMinimized: false,
+  endsAt: null
 }
 
 export function useWorkoutStore() {
@@ -171,6 +182,16 @@ export function useWorkoutStore() {
     }
   })
 
+  // 8b. Routines assigned by the trainer (kept separate from own routines)
+  const [assignedRoutines, setAssignedRoutines] = useState<RoutineAssignment[]>(() => {
+    try {
+      const saved = localStorage.getItem(getStorageKey('assigned_routines'))
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
   // 9. Exercise Library (cached locally, syncable to Firebase)
   const [libraryExercises, setLibraryExercises] = useState<LibraryExercise[]>(() => {
     try {
@@ -205,13 +226,10 @@ export function useWorkoutStore() {
   const [assignmentStatus, setAssignmentStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   // 11. Rest Timer State
-  const [restTimer, setRestTimer] = useState<RestTimerState>({
-    isActive: false,
-    totalSeconds: 0,
-    remainingSeconds: 0,
-    exerciseName: '',
-    isMinimized: false
-  })
+  const [restTimer, setRestTimer] = useState<RestTimerState>(DEFAULT_REST_TIMER)
+
+  // Tracks which profile's local data is currently loaded (prevents syncing stale data)
+  const [loadedProfileId, setLoadedProfileId] = useState<string | null>(null)
 
   // Reload profile specific data whenever activeProfileId changes
   useEffect(() => {
@@ -233,8 +251,30 @@ export function useWorkoutStore() {
       const savedAlts = localStorage.getItem(getStorageKey('alternatives'))
       setSelectedAlternatives(savedAlts ? JSON.parse(savedAlts) : {})
 
+      const savedAssigned = localStorage.getItem(getStorageKey('assigned_routines'))
+      setAssignedRoutines(savedAssigned ? JSON.parse(savedAssigned) : [])
+
       const savedSession = localStorage.getItem(getStorageKey('active_session'))
       setActiveSession(savedSession ? JSON.parse(savedSession) : null)
+
+      // Restore a running rest timer (timestamp based, survives app background/close)
+      const savedTimer = localStorage.getItem(getStorageKey('rest_timer'))
+      if (savedTimer) {
+        const parsed: RestTimerState = JSON.parse(savedTimer)
+        if (parsed?.isActive && parsed.endsAt && parsed.endsAt > Date.now()) {
+          setRestTimer({
+            ...DEFAULT_REST_TIMER,
+            ...parsed,
+            remainingSeconds: Math.max(0, Math.ceil((parsed.endsAt - Date.now()) / 1000))
+          })
+        } else {
+          setRestTimer(DEFAULT_REST_TIMER)
+        }
+      } else {
+        setRestTimer(DEFAULT_REST_TIMER)
+      }
+
+      setLoadedProfileId(activeProfileId)
     } catch (err) {
       console.warn('Error loading profile data:', err)
     }
@@ -262,51 +302,60 @@ export function useWorkoutStore() {
     }
   }, [profiles])
 
-  // Pull routines assigned by the admin from Firestore and merge them locally
+  // Pull routines assigned by the trainer (cloud + pending local ones) into a
+  // separate list so they never mix with the athlete's own routines
   useEffect(() => {
-    if (!activeProfileId || !isFirebaseConfigured()) return
+    if (!activeProfileId) return
     let cancelled = false
 
-    const appliedKey = `lazcakon_${activeProfileId}_applied_assignments`
-
     const applyAssignments = async () => {
-      const result = await fetchAssignedRoutines(activeProfileId)
-      if (cancelled || !result.success || result.assignments.length === 0) return
-
-      let applied: Record<string, boolean> = {}
+      let local: RoutineAssignment[] = []
       try {
-        applied = JSON.parse(localStorage.getItem(appliedKey) || '{}')
+        const rawLocal = localStorage.getItem(getStorageKey('assigned_routines'))
+        const parsed = rawLocal ? JSON.parse(rawLocal) : []
+        if (Array.isArray(parsed)) local = parsed
       } catch {
-        applied = {}
+        local = []
       }
 
-      const pending = result.assignments.filter(a => !applied[a.id])
-      if (pending.length === 0) return
-
-      setRoutines(prev => {
-        let next = [...prev]
-        pending.forEach(assignment => {
-          const idx = next.findIndex(r => r.id === assignment.routineId)
-          if (idx >= 0) {
-            next[idx] = assignment.routine
-          } else {
-            next = [...next, assignment.routine]
-          }
-          applied[assignment.id] = true
-        })
-        return next
-      })
-
-      try {
-        localStorage.setItem(appliedKey, JSON.stringify(applied))
-      } catch {
-        // safe fallback
+      let cloud: RoutineAssignment[] | null = null
+      if (isFirebaseConfigured()) {
+        const result = await fetchAssignedRoutines(activeProfileId)
+        if (cancelled) return
+        if (result.success) cloud = result.assignments
       }
+
+      const base = cloud ?? local
+      const baseIds = new Set(base.map(a => a.id))
+      const pendingLocal = local.filter(a => a.pendingSync && !baseIds.has(a.id))
+      const merged = [...base, ...pendingLocal]
+
+      const byRoutine = new Map<string, RoutineAssignment>()
+      merged
+        .sort((a, b) => new Date(a.assignedAt).getTime() - new Date(b.assignedAt).getTime())
+        .forEach(a => byRoutine.set(a.routineId, a))
+
+      if (cancelled) return
+
+      setAssignedRoutines(
+        Array.from(byRoutine.values()).sort(
+          (a, b) => new Date(b.assignedAt).getTime() - new Date(a.assignedAt).getTime()
+        )
+      )
     }
 
     applyAssignments()
+
+    const handleVisible = () => {
+      if (!cancelled && document.visibilityState === 'visible') void applyAssignments()
+    }
+
+    document.addEventListener('visibilitychange', handleVisible)
+    window.addEventListener('focus', handleVisible)
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', handleVisible)
+      window.removeEventListener('focus', handleVisible)
     }
   }, [activeProfileId])
 
@@ -359,6 +408,14 @@ export function useWorkoutStore() {
 
   useEffect(() => {
     try {
+      localStorage.setItem(getStorageKey('assigned_routines'), JSON.stringify(assignedRoutines))
+    } catch {
+      // safe fallback
+    }
+  }, [assignedRoutines])
+
+  useEffect(() => {
+    try {
       localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify(libraryExercises))
     } catch {
       // safe fallback
@@ -375,41 +432,63 @@ export function useWorkoutStore() {
 
   const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0] || DEFAULT_PROFILES[0]
 
-  // Rest Timer Interval Logic
+  // Rest Timer Logic: the countdown is derived from a real timestamp so it
+  // keeps its pace while the app/tab is in the background or suspended
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null
-    if (restTimer.isActive && restTimer.remainingSeconds > 0) {
-      interval = setInterval(() => {
-        setRestTimer(prev => {
-          if (!prev.isActive) return prev
-          const nextSec = prev.remainingSeconds - 1
+    if (!restTimer.isActive || !restTimer.endsAt) return
 
-          if (activeProfile?.soundEnabled !== false) {
-            if (nextSec === 3 || nextSec === 2 || nextSec === 1) {
-              playCountdownBeep(false)
-            } else if (nextSec === 0) {
-              playCountdownBeep(true)
-            }
-          }
+    const tick = () => {
+      setRestTimer(prev => {
+        if (!prev.isActive || !prev.endsAt) return prev
 
-          if (nextSec <= 0) {
-            return {
-              ...prev,
-              remainingSeconds: 0,
-              isActive: false
-            }
-          }
-          return {
-            ...prev,
-            remainingSeconds: nextSec
-          }
-        })
-      }, 1000)
+        const remaining = Math.max(0, Math.ceil((prev.endsAt - Date.now()) / 1000))
+
+        if (remaining <= 0) {
+          if (activeProfile?.soundEnabled !== false) playCountdownBeep(true)
+          return { ...prev, remainingSeconds: 0, isActive: false, endsAt: null }
+        }
+
+        if (
+          activeProfile?.soundEnabled !== false &&
+          remaining < prev.remainingSeconds &&
+          remaining <= 3
+        ) {
+          playCountdownBeep(false)
+        }
+
+        if (remaining === prev.remainingSeconds) return prev
+        return { ...prev, remainingSeconds: remaining }
+      })
     }
+
+    tick()
+    const interval = setInterval(tick, 250)
+
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+
+    document.addEventListener('visibilitychange', handleVisible)
+    window.addEventListener('focus', handleVisible)
     return () => {
-      if (interval) clearInterval(interval)
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisible)
+      window.removeEventListener('focus', handleVisible)
     }
-  }, [restTimer.isActive, restTimer.remainingSeconds, activeProfile?.soundEnabled])
+  }, [restTimer.isActive, restTimer.endsAt, activeProfile?.soundEnabled])
+
+  // Persist the running rest timer so it survives app backgrounding / reopening
+  useEffect(() => {
+    try {
+      if (restTimer.isActive && restTimer.endsAt) {
+        localStorage.setItem(getStorageKey('rest_timer'), JSON.stringify(restTimer))
+      } else {
+        localStorage.removeItem(getStorageKey('rest_timer'))
+      }
+    } catch {
+      // safe fallback
+    }
+  }, [restTimer])
 
   // --- PROFILE & LOGIN MANAGEMENT ---
 
@@ -525,8 +604,9 @@ export function useWorkoutStore() {
     routine: WorkoutDay
   ) => {
     const adminName = activeProfile?.name || 'Administrador'
+    const isLocalTarget = profiles.some(p => p.id === targetProfileId)
     const assignment: RoutineAssignment = {
-      id: 'assign_' + Date.now(),
+      id: 'assign_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       routineId: routine.id,
       routineTitle: routine.title,
       assignedToProfileId: targetProfileId,
@@ -537,36 +617,96 @@ export function useWorkoutStore() {
       routine
     }
 
-    const result = await assignRoutineToUser(assignment)
-    setAssignmentStatus({
-      type: result.success ? 'success' : 'error',
-      message: result.message
-    })
+    const cloudResult = await assignRoutineToUser(assignment)
 
-    if (!result.success) return result
+    if (!cloudResult.success && !isLocalTarget) {
+      setAssignmentStatus({ type: 'error', message: cloudResult.message })
+      return cloudResult
+    }
+
+    if (!cloudResult.success) {
+      assignment.pendingSync = true
+    }
 
     setAssignments(prev => [assignment, ...prev.filter(a => a.id !== assignment.id)])
 
     // Apply immediately for profiles stored on this device
-    try {
-      const targetKey = `lazcakon_${targetProfileId}_routines`
-      const raw = localStorage.getItem(targetKey)
-      const targetRoutines: WorkoutDay[] = raw ? JSON.parse(raw) : INITIAL_ROUTINES
-      const idx = targetRoutines.findIndex(r => r.id === routine.id)
-      const next = idx >= 0
-        ? targetRoutines.map(r => r.id === routine.id ? routine : r)
-        : [...targetRoutines, routine]
-      localStorage.setItem(targetKey, JSON.stringify(next))
+    if (isLocalTarget) {
+      try {
+        const targetKey = `lazcakon_${targetProfileId}_assigned_routines`
+        const raw = localStorage.getItem(targetKey)
+        const current: RoutineAssignment[] = raw ? JSON.parse(raw) : []
+        const next = [
+          assignment,
+          ...current.filter(a => a.id !== assignment.id && a.routineId !== routine.id)
+        ]
+        localStorage.setItem(targetKey, JSON.stringify(next))
 
-      if (targetProfileId === activeProfileId) {
-        setRoutines(next)
+        if (targetProfileId === activeProfileId) {
+          setAssignedRoutines(next)
+        }
+      } catch {
+        // local apply is best-effort
+      }
+    }
+
+    const message = cloudResult.success
+      ? `Rutina "${routine.title}" asignada a ${targetProfileName}.`
+      : `Rutina "${routine.title}" guardada para ${targetProfileName} en este dispositivo (sin conexión a la nube).`
+
+    setAssignmentStatus({ type: 'success', message })
+
+    return { success: true, message }
+  }, [activeProfile, activeProfileId, profiles])
+
+  const unassignRoutine = useCallback(async (assignment: RoutineAssignment) => {
+    setAssignments(prev => prev.filter(a => a.id !== assignment.id))
+
+    if (assignment.assignedToProfileId === activeProfileId) {
+      setAssignedRoutines(prev => prev.filter(a => a.id !== assignment.id))
+    }
+
+    try {
+      const targetKey = `lazcakon_${assignment.assignedToProfileId}_assigned_routines`
+      const raw = localStorage.getItem(targetKey)
+      if (raw) {
+        const current: RoutineAssignment[] = JSON.parse(raw)
+        localStorage.setItem(
+          targetKey,
+          JSON.stringify(current.filter(a => a.id !== assignment.id))
+        )
       }
     } catch {
       // local apply is best-effort
     }
 
+    const result = await unassignRoutineFromUser(assignment.assignedToProfileId, assignment.id)
+    setAssignmentStatus({
+      type: result.success ? 'success' : 'error',
+      message: result.success
+        ? `Rutina "${assignment.routineTitle}" desasignada de ${assignment.assignedToProfileName}.`
+        : result.message
+    })
     return result
-  }, [activeProfile, activeProfileId])
+  }, [activeProfileId])
+
+  const duplicateAssignedRoutine = useCallback((assignmentId: string) => {
+    const assignment = assignedRoutines.find(a => a.id === assignmentId)
+    if (!assignment) return null
+
+    const stamp = Date.now()
+    const copy: WorkoutDay = {
+      ...assignment.routine,
+      id: `routine_${stamp}`,
+      exercises: assignment.routine.exercises.map((exercise, index) => ({
+        ...exercise,
+        id: `ex_copy_${stamp}_${index}`
+      }))
+    }
+
+    setRoutines(prev => [...prev, copy])
+    return copy
+  }, [assignedRoutines])
 
   const clearAssignmentStatus = useCallback(() => {
     setAssignmentStatus(null)
@@ -604,6 +744,28 @@ export function useWorkoutStore() {
     refreshCloudUsers
   ])
 
+  // Keep the cloud copy of this profile fresh so the admin can see every user.
+  // Only runs once per profile session to avoid syncing on every state change.
+  const syncToCloudRef = useRef(syncToCloud)
+  useEffect(() => {
+    syncToCloudRef.current = syncToCloud
+  }, [syncToCloud])
+
+  const autoSyncedProfileRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isLoggedIn || !activeProfileId || !isFirebaseConfigured()) return
+    if (loadedProfileId !== activeProfileId) return
+    if (autoSyncedProfileRef.current === activeProfileId) return
+    autoSyncedProfileRef.current = activeProfileId
+    void syncToCloudRef.current()
+  }, [isLoggedIn, activeProfileId, loadedProfileId])
+
+  // Admin panel always starts with the latest user list
+  useEffect(() => {
+    if (!activeProfile?.isAdmin || !isFirebaseConfigured()) return
+    void refreshCloudUsers()
+  }, [activeProfile?.isAdmin, refreshCloudUsers])
+
   // --- REST TIMER ---
 
   const startRestTimer = useCallback((seconds: number, exerciseName: string) => {
@@ -613,22 +775,27 @@ export function useWorkoutStore() {
       totalSeconds: seconds,
       remainingSeconds: seconds,
       exerciseName,
-      isMinimized: false
+      isMinimized: false,
+      endsAt: Date.now() + seconds * 1000
     })
   }, [])
 
   const stopRestTimer = useCallback(() => {
-    setRestTimer(prev => ({ ...prev, isActive: false, remainingSeconds: 0 }))
+    setRestTimer(prev => ({ ...prev, isActive: false, remainingSeconds: 0, endsAt: null }))
   }, [])
 
   const adjustRestTimer = useCallback((delta: number) => {
     setRestTimer(prev => {
-      const next = Math.max(5, prev.remainingSeconds + delta)
+      const current = prev.endsAt
+        ? Math.max(0, Math.ceil((prev.endsAt - Date.now()) / 1000))
+        : prev.remainingSeconds
+      const next = Math.max(5, current + delta)
       return {
         ...prev,
         remainingSeconds: next,
         totalSeconds: Math.max(prev.totalSeconds, next),
-        isActive: true
+        isActive: true,
+        endsAt: Date.now() + next * 1000
       }
     })
   }, [])
@@ -640,7 +807,9 @@ export function useWorkoutStore() {
   // --- WORKOUT EXECUTION ---
 
   const startWorkout = useCallback((dayId: string) => {
-    const day = routines.find(r => r.id === dayId)
+    const day =
+      routines.find(r => r.id === dayId) ||
+      assignedRoutines.find(a => a.routine.id === dayId)?.routine
     if (!day) return
 
     const lastSessionForDay = history.find(h => h.dayId === dayId && h.isFinished)
@@ -687,7 +856,7 @@ export function useWorkoutStore() {
     }
 
     setActiveSession(newSession)
-  }, [routines, history, selectedAlternatives])
+  }, [routines, assignedRoutines, history, selectedAlternatives])
 
   const updateSet = useCallback((
     exerciseId: string, 
@@ -957,6 +1126,10 @@ export function useWorkoutStore() {
     }
   }, [updateProfile])
 
+  const ownRoutineIds = new Set(routines.map(r => r.id))
+  const visibleAssignedRoutines = assignedRoutines.filter(a => !ownRoutineIds.has(a.routineId))
+  const allRoutines = [...routines, ...visibleAssignedRoutines.map(a => a.routine)]
+
   return {
     isLoggedIn,
     login,
@@ -969,6 +1142,8 @@ export function useWorkoutStore() {
     switchProfile,
     deleteProfile,
     routines,
+    allRoutines,
+    visibleAssignedRoutines,
     createRoutine,
     updateRoutine,
     deleteRoutine,
@@ -983,7 +1158,10 @@ export function useWorkoutStore() {
     refreshCloudUsers,
     syncToCloud,
     assignments,
+    assignedRoutines,
     assignRoutineToProfile,
+    unassignRoutine,
+    duplicateAssignedRoutine,
     assignmentStatus,
     clearAssignmentStatus,
     activeSession,
