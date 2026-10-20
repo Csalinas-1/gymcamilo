@@ -316,6 +316,7 @@ export function App() {
       />
 
       {/* Mobile Fixed Bottom Navigation Bar */}
+      <ProgressTable />
       <BottomNav
         currentTab={currentTab}
         onTabChange={setCurrentTab}
@@ -327,3 +328,44 @@ export function App() {
 }
 
 export default App
+function ProgressTable() {
+  return (
+    <div style={{ backgroundColor: '#1e1e1e', borderRadius: '8px', padding: '20px', margin: '20px', color: '#ffffff', fontFamily: 'sans-serif', boxShadow: '0 4px 6px rgba(0,0,0,0.4)' }}>
+      <h2 style={{ fontSize: '20px', color: '#4CAF50', marginTop: 0 }}>📊 Informes y Comparativas de Progreso</h2>
+      <p style={{ color: '#b0b0b0', fontSize: '14px' }}>Comparación del peso utilizado en cada ejercicio, repeticiones y evolución mes a mes.</p>
+      
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px', textAlign: 'center' }}>
+        <thead>
+          <tr style={{ backgroundColor: '#2c2c2c', color: '#4CAF50' }}>
+            <th style={{ padding: '10px', borderBottom: '1px solid #444' }}>Ejercicio / Métrica</th>
+            <th style={{ padding: '10px', borderBottom: '1px solid #444' }}>Mes Anterior</th>
+            <th style={{ padding: '10px', borderBottom: '1px solid #444' }}>Mes Actual</th>
+            <th style={{ padding: '10px', borderBottom: '1px solid #444' }}>Progreso</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style={{ borderBottom: '1px solid #333' }}>
+            <td style={{ padding: '10px' }}>Sentadilla Libre (Squat)</td>
+            <td style={{ padding: '10px' }}>80 kg</td>
+            <td style={{ padding: '10px' }}>95 kg</td>
+            <td style={{ padding: '10px', color: '#4CAF50', fontWeight: 'bold' }}>+15 kg 🚀</td>
+          </tr>
+          <tr style={{ borderBottom: '1px solid #333' }}>
+            <td style={{ padding: '10px' }}>Press de Banca (Bench)</td>
+            <td style={{ padding: '10px' }}>60 kg</td>
+            <td style={{ padding: '10px' }}>70 kg</td>
+            <td style={{ padding: '10px', color: '#4CAF50', fontWeight: 'bold' }}>+10 kg 💪</td>
+          </tr>
+          <tr>
+            <td style={{ padding: '10px' }}>Peso Corporal</td>
+            <td style={{ padding: '10px' }}>75.5 kg</td>
+            <td style={{ padding: '10px' }}>74.2 kg</td>
+            <td style={{ padding: '10px', color: '#4CAF50', fontWeight: 'bold' }}>-1.3 kg 📉</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+
